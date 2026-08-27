@@ -1,11 +1,9 @@
-import re
-
-
 # --------------------------------------------------
-# Disruption keywords
+# Disruption Detection
 # --------------------------------------------------
 
 DISRUPTION_PATTERNS = {
+
     "Port Strike": [
         "strike",
         "workers strike",
@@ -20,15 +18,29 @@ DISRUPTION_PATTERNS = {
         "port closed",
         "closed port",
         "port shutdown",
-        "port shut down"
+        "port shut down",
+        "has been closed",
+        "was closed"
     ],
 
     "Port Congestion": [
+        "congestion",
         "port congestion",
         "congestion at port",
-        "port delays",
-        "port delay",
-        "shipping congestion"
+        "shipping congestion",
+        "severe congestion",
+        "heavy congestion"
+    ],
+
+    "Shipping Delay": [
+        "shipping delay",
+        "shipping delays",
+        "shipment delay",
+        "shipment delays",
+        "shipping disruption",
+        "shipping disruption",
+        "operational delay",
+        "long delay"
     ],
 
     "Natural Disaster": [
@@ -49,7 +61,7 @@ DISRUPTION_PATTERNS = {
 
 
 # --------------------------------------------------
-# Severity keywords
+# Severity
 # --------------------------------------------------
 
 HIGH_SEVERITY = [
@@ -62,12 +74,16 @@ HIGH_SEVERITY = [
     "complete disruption"
 ]
 
+
 MEDIUM_SEVERITY = [
     "significant",
     "moderate",
-    "long delay",
-    "disruption"
+    "disruption",
+    "delay",
+    "delays",
+    "congestion"
 ]
+
 
 LOW_SEVERITY = [
     "minor",
@@ -89,6 +105,7 @@ def detect_disruption_type(text):
         for keyword in keywords:
 
             if keyword in text_lower:
+
                 return disruption_type
 
     return "Unknown"
@@ -105,24 +122,26 @@ def detect_severity(text):
     for keyword in HIGH_SEVERITY:
 
         if keyword in text_lower:
+
             return "High"
 
     for keyword in MEDIUM_SEVERITY:
 
         if keyword in text_lower:
+
             return "Medium"
 
     for keyword in LOW_SEVERITY:
 
         if keyword in text_lower:
+
             return "Low"
 
-    # Default severity when disruption exists
-    return "Medium"
+    return "None"
 
 
 # --------------------------------------------------
-# Complete disruption analysis
+# Complete analysis
 # --------------------------------------------------
 
 def analyze_disruption(text):
@@ -150,29 +169,28 @@ def analyze_disruption(text):
 
 if __name__ == "__main__":
 
-    news = (
-        "Workers announced a major strike at Rotterdam Port. "
-        "The disruption may affect electronics shipments "
-        "from Germany to North America."
-    )
+    test_cases = [
 
-    result = analyze_disruption(news)
+        "Workers announced a major strike at Rotterdam Port.",
+
+        "Hamburg Port has been closed due to a severe operational disruption.",
+
+        "Heavy congestion at Singapore Port is causing shipping delays.",
+
+        "Mumbai Port is facing significant shipping delays.",
+
+        "Global electronics companies reported strong quarterly sales."
+    ]
 
     print("===== AtmoGraph Disruption Detection =====")
 
-    print("\nNews:")
-    print(news)
+    for i, news in enumerate(test_cases, start=1):
 
-    print("\nAnalysis:")
+        result = analyze_disruption(news)
 
-    print(
-        "Disruption Type:",
-        result["disruption_type"]
-    )
-
-    print(
-        "Severity:",
-        result["severity"]
-    )
+        print(f"\nTest {i}:")
+        print("News:", news)
+        print("Disruption:", result["disruption_type"])
+        print("Severity:", result["severity"])
 
     print("\n===== Detection Complete =====")
