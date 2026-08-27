@@ -55,7 +55,12 @@ const edges = [
 function App() {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
+      
+      <h1>AtmoGraph</h1>
+      <p>Supply Chain Ripple Effect Predictor</p>
+
       <ReactFlow nodes={nodes} edges={edges} />
+      
     </div>
   );
 }
