@@ -1,66 +1,127 @@
 import { ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import "./App.css";
 
 const nodes = [
   {
     id: "supplier",
-    position: { x: 50, y: 100 },
+    position: { x: 50, y: 250 },
     data: { label: "Supplier" },
   },
+
   {
-    id: "factory",
-    position: { x: 250, y: 100 },
-    data: { label: "Factory" },
+    id: "factory-a",
+    position: { x: 300, y: 100 },
+    data: { label: "Factory A" },
   },
   {
-    id: "port",
-    position: { x: 450, y: 100 },
-    data: { label: "Port" },
+    id: "factory-b",
+    position: { x: 300, y: 250 },
+    data: { label: "Factory B" },
   },
   {
-    id: "warehouse",
-    position: { x: 650, y: 100 },
-    data: { label: "Warehouse" },
+    id: "factory-c",
+    position: { x: 300, y: 400 },
+    data: { label: "Factory C" },
+  },
+
+  {
+    id: "warehouse-a",
+    position: { x: 550, y: 100 },
+    data: { label: "Warehouse A" },
   },
   {
-    id: "market",
-    position: { x: 850, y: 100 },
-    data: { label: "Market" },
+    id: "warehouse-b",
+    position: { x: 550, y: 250 },
+    data: { label: "Warehouse B" },
+  },
+  {
+    id: "warehouse-c",
+    position: { x: 550, y: 400 },
+    data: { label: "Warehouse C" },
+  },
+
+  {
+    id: "market-a",
+    position: { x: 800, y: 100 },
+    data: { label: "Market A" },
+  },
+  {
+    id: "market-b",
+    position: { x: 800, y: 250 },
+    data: { label: "Market B" },
+  },
+  {
+    id: "market-c",
+    position: { x: 800, y: 400 },
+    data: { label: "Market C" },
   },
 ];
 
 const edges = [
+  // Supplier → Factories
   {
-    id: "supplier-factory",
+    id: "supplier-factory-a",
     source: "supplier",
-    target: "factory",
+    target: "factory-a",
   },
   {
-    id: "factory-port",
-    source: "factory",
-    target: "port",
+    id: "supplier-factory-b",
+    source: "supplier",
+    target: "factory-b",
   },
   {
-    id: "port-warehouse",
-    source: "port",
-    target: "warehouse",
+    id: "supplier-factory-c",
+    source: "supplier",
+    target: "factory-c",
+  },
+
+  // Factories → Warehouses
+  {
+    id: "factory-a-warehouse-a",
+    source: "factory-a",
+    target: "warehouse-a",
   },
   {
-    id: "warehouse-market",
-    source: "warehouse",
-    target: "market",
+    id: "factory-b-warehouse-b",
+    source: "factory-b",
+    target: "warehouse-b",
+  },
+  {
+    id: "factory-c-warehouse-c",
+    source: "factory-c",
+    target: "warehouse-c",
+  },
+
+  // Warehouses → Markets
+  {
+    id: "warehouse-a-market-a",
+    source: "warehouse-a",
+    target: "market-a",
+  },
+  {
+    id: "warehouse-b-market-b",
+    source: "warehouse-b",
+    target: "market-b",
+  },
+  {
+    id: "warehouse-c-market-c",
+    source: "warehouse-c",
+    target: "market-c",
   },
 ];
 
 function App() {
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
-      
-      <h1>AtmoGraph</h1>
-      <p>Supply Chain Ripple Effect Predictor</p>
+    <div className="app">
+      <header className="header">
+        <h1>AtmoGraph</h1>
+        <p>Supply Chain Ripple Effect Predictor</p>
+      </header>
 
-      <ReactFlow nodes={nodes} edges={edges} />
-      
+      <main className="graph-container">
+        <ReactFlow nodes={nodes} edges={edges} />
+      </main>
     </div>
   );
 }
