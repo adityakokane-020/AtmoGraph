@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
@@ -59,7 +60,6 @@ const nodes = [
 ];
 
 const edges = [
-  // Supplier → Factories
   {
     id: "supplier-factory-a",
     source: "supplier",
@@ -76,7 +76,6 @@ const edges = [
     target: "factory-c",
   },
 
-  // Factories → Warehouses
   {
     id: "factory-a-warehouse-a",
     source: "factory-a",
@@ -93,7 +92,6 @@ const edges = [
     target: "warehouse-c",
   },
 
-  // Warehouses → Markets
   {
     id: "warehouse-a-market-a",
     source: "warehouse-a",
@@ -112,6 +110,12 @@ const edges = [
 ];
 
 function App() {
+  const [selectedNode, setSelectedNode] = useState(null);
+
+  const handleNodeClick = (event, node) => {
+    setSelectedNode(node);
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -120,7 +124,33 @@ function App() {
       </header>
 
       <main className="graph-container">
-        <ReactFlow nodes={nodes} edges={edges} />
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodeClick={handleNodeClick}
+        />
+
+        {selectedNode && (
+          <div className="node-details">
+            <h2>{selectedNode.data.label}</h2>
+
+            <p>
+              <strong>ID:</strong> {selectedNode.id}
+            </p>
+
+            <p>
+              <strong>Status:</strong> Normal
+            </p>
+
+            <p>
+              <strong>Risk:</strong> Low
+            </p>
+
+            <button onClick={() => setSelectedNode(null)}>
+              Close
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -23,3 +23,29 @@
   width: 100%;
   height: calc(100vh - 120px);
 }
+.node-details {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 250px;
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.node-details h2 {
+  margin-top: 0;
+}
+
+.node-details p {
+  margin: 10px 0;
+}
+
+.node-details button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
