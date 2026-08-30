@@ -7,55 +7,121 @@ const nodes = [
   {
     id: "supplier",
     position: { x: 50, y: 250 },
-    data: { label: "Supplier" },
+    data: {
+      label: "Main Supplier",
+      type: "Supplier",
+      location: "India",
+      status: "Normal",
+      risk: "Low",
+    },
   },
 
   {
     id: "factory-a",
     position: { x: 300, y: 100 },
-    data: { label: "Factory A" },
+    data: {
+      label: "Factory A",
+      type: "Factory",
+      location: "India",
+      status: "Normal",
+      risk: "Low",
+    },
   },
+
   {
     id: "factory-b",
     position: { x: 300, y: 250 },
-    data: { label: "Factory B" },
+    data: {
+      label: "Factory B",
+      type: "Factory",
+      location: "India",
+      status: "Normal",
+      risk: "Medium",
+    },
   },
+
   {
     id: "factory-c",
     position: { x: 300, y: 400 },
-    data: { label: "Factory C" },
+    data: {
+      label: "Factory C",
+      type: "Factory",
+      location: "India",
+      status: "Normal",
+      risk: "Low",
+    },
   },
 
   {
     id: "warehouse-a",
     position: { x: 550, y: 100 },
-    data: { label: "Warehouse A" },
+    data: {
+      label: "Warehouse A",
+      type: "Warehouse",
+      location: "India",
+      status: "Normal",
+      risk: "Low",
+    },
   },
+
   {
     id: "warehouse-b",
     position: { x: 550, y: 250 },
-    data: { label: "Warehouse B" },
+    data: {
+      label: "Warehouse B",
+      type: "Warehouse",
+      location: "India",
+      status: "Normal",
+      risk: "Medium",
+    },
   },
+
   {
     id: "warehouse-c",
     position: { x: 550, y: 400 },
-    data: { label: "Warehouse C" },
+    data: {
+      label: "Warehouse C",
+      type: "Warehouse",
+      location: "India",
+      status: "Normal",
+      risk: "Low",
+    },
   },
 
   {
     id: "market-a",
     position: { x: 800, y: 100 },
-    data: { label: "Market A" },
+    data: {
+      label: "Market A",
+      type: "Market",
+      location: "India",
+      status: "Normal",
+      risk: "Low",
+    },
   },
+
   {
     id: "market-b",
     position: { x: 800, y: 250 },
-    data: { label: "Market B" },
+    data: {
+      label: "Market B",
+      type: "Market",
+      location: "India",
+      status: "Normal",
+      risk: "Medium",
+    },
   },
+
   {
     id: "market-c",
     position: { x: 800, y: 400 },
-    data: { label: "Market C" },
+    data: {
+      label: "Market C",
+      type: "Market",
+      location: "India",
+      status: "Normal",
+      risk: "Low",
+    },
   },
 ];
 
@@ -139,11 +205,19 @@ function App() {
             </p>
 
             <p>
-              <strong>Status:</strong> Normal
+              <strong>Type:</strong> {selectedNode.data.type}
             </p>
 
             <p>
-              <strong>Risk:</strong> Low
+              <strong>Location:</strong> {selectedNode.data.location}
+            </p>
+
+            <p>
+              <strong>Status:</strong> {selectedNode.data.status}
+            </p>
+
+            <p>
+              <strong>Risk:</strong> {selectedNode.data.risk}
             </p>
 
             <button onClick={() => setSelectedNode(null)}>
