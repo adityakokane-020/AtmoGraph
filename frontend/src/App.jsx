@@ -175,6 +175,23 @@ const edges = [
   },
 ];
 
+const getRiskClass = (risk) => {
+  if (risk === "High") {
+    return "high-risk";
+  }
+
+  if (risk === "Medium") {
+    return "medium-risk";
+  }
+
+  return "low-risk";
+};
+
+const nodesWithRisk = nodes.map((node) => ({
+  ...node,
+  className: getRiskClass(node.data.risk),
+}));
+
 function App() {
   const [selectedNode, setSelectedNode] = useState(null);
 
@@ -191,7 +208,7 @@ function App() {
 
       <main className="graph-container">
         <ReactFlow
-          nodes={nodes}
+          nodes={nodesWithRisk}
           edges={edges}
           onNodeClick={handleNodeClick}
         />
