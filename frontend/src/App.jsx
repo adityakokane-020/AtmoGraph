@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { ReactFlow } from "@xyflow/react";
+import {
+  ReactFlow,
+  Controls,
+  MiniMap,
+  Background
+} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
 
@@ -211,7 +216,12 @@ function App() {
           nodes={nodesWithRisk}
           edges={edges}
           onNodeClick={handleNodeClick}
-        />
+          fitView
+        >
+          <Controls />
+          <MiniMap />
+          <Background />
+        </ReactFlow>
 
         {selectedNode && (
           <div className="node-details">
