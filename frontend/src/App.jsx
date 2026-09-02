@@ -3,8 +3,9 @@ import {
   ReactFlow,
   Controls,
   MiniMap,
-  Background
+  Background,
 } from "@xyflow/react";
+
 import "@xyflow/react/dist/style.css";
 import "./App.css";
 
@@ -192,26 +193,82 @@ const getRiskClass = (risk) => {
   return "low-risk";
 };
 
-const nodesWithRisk = nodes.map((node) => ({
-  ...node,
-  className: getRiskClass(node.data.risk),
-}));
-
 function App() {
   const [selectedNode, setSelectedNode] = useState(null);
+  const [search, setSearch] = useState("");
 
   const handleNodeClick = (event, node) => {
     setSelectedNode(node);
   };
 
+  const nodesWithRisk = nodes.map((node) => {
+    const matchesSearch =
+      search.trim() !== "" &&
+      node.data.label.toLowerCase().includes(search.toLowerCase());
+
+    return {
+      ...node,
+
+      className: getRiskClass(node.data.risk),
+
+      style: matchesSearch
+        ? {
+          boxShadow: "0 0 20px 6px #3b82f6",
+          border: "3px solid #3b82f6",
+        }
+        : {},
+    };
+  });
+  const lowRiskCount = nodes.filter(
+    (node) => node.data.risk === "Low"
+  ).length;
+
+  const mediumRiskCount = nodes.filter(
+    (node) => node.data.risk === "Medium"
+  ).length;
+
+  const highRiskCount = nodes.filter(
+    (node) => node.data.risk === "High"
+  ).length;
+
   return (
     <div className="app">
+
       <header className="header">
         <h1>AtmoGraph</h1>
         <p>Supply Chain Ripple Effect Predictor</p>
       </header>
 
       <main className="graph-container">
+
+        <div className="risk-summary">
+          <h3>Risk Overview</h3>
+
+          <div className="risk-counts">
+            <span className="risk-low">
+              Low: {lowRiskCount}
+            </span>
+
+            <span className="risk-medium">
+              Medium: {mediumRiskCount}
+            </span>
+
+            <span className="risk-high">
+              High: {highRiskCount}
+            </span>
+          </div>
+        </div>
+
+        <div className="search-box">
+          <input
+            type="text"
+            placeholder="Search node..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+
+
         <ReactFlow
           nodes={nodesWithRisk}
           edges={edges}
@@ -225,6 +282,7 @@ function App() {
 
         {selectedNode && (
           <div className="node-details">
+
             <h2>{selectedNode.data.label}</h2>
 
             <p>
@@ -250,9 +308,12 @@ function App() {
             <button onClick={() => setSelectedNode(null)}>
               Close
             </button>
+
           </div>
         )}
+
       </main>
+
     </div>
   );
 }

@@ -33,25 +33,27 @@
 
 .react-flow__node {
   border: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 10px 20px;
   font-weight: 500;
+  color: #111827;
+  background: white;
 }
 
 
-.react-flow__node.low-risk {
-  border-color: #22c55e;
+.react-flow__minimap {
+  background: #1f2937;
 }
 
-.react-flow__node.medium-risk {
-  border-color: #eab308;
+.react-flow__controls {
+  background: #1f2937;
 }
 
-
-.react-flow__node.high-risk {
-  border-color: #ef4444;
+.react-flow__controls-button {
+  background: #374151;
+  color: white;
+  border-bottom: 1px solid #4b5563;
 }
-
 .node-details {
   position: absolute;
   top: 20px;
@@ -92,4 +94,55 @@
 
 .node-details button:hover {
   background: #374151;
+}
+
+.search-box {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+}
+
+.search-box input {
+  width: 220px;
+  padding: 12px 15px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
+
+.risk-summary {
+  position: fixed;
+  bottom: 30px;
+  right: 25px;
+  z-index: 20;
+  padding: 12px 20px;
+  background: white;
+  color: #111827;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.risk-summary h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.risk-counts {
+  display: flex;
+  gap: 15px;
+}
+
+.risk-low {
+  color: #16a34a;
+}
+
+.risk-medium {
+  color: #ca8a04;
+}
+
+.risk-high {
+  color: #dc2626;
 }
