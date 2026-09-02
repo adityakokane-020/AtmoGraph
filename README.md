@@ -41,7 +41,7 @@ For example, the system could predict a 3-month delay in North American consumer
 
 | Team Member | Module | Main Responsibilities |
 |---|---|---|
-| Team Member 1 | Frontend | React dashboard, interactive graph, node details and risk visualization |
+| Sudipta Chakraborty | Frontend | React dashboard, interactive graph, node details and risk visualization |
 | Team Member 2 | Backend & Neo4j | FastAPI, Neo4j database, graph structure and APIs |
 | Team Member 3 | NLP | News processing, NER, entity extraction and disruption detection |
 | Team Member 4 | Machine Learning / GNN | GNN model, delay prediction and ripple-effect analysis |
