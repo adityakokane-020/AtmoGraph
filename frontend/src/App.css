@@ -146,3 +146,36 @@
 .risk-high {
   color: #dc2626;
 }
+.ripple-info {
+  position: fixed;
+  bottom: 30px;
+  left: 30px;
+  z-index: 20;
+  padding: 15px 20px;
+  background: white;
+  color: #111827;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+}
+
+.ripple-info h3 {
+  margin: 0 0 6px;
+}
+
+.ripple-info p {
+  margin: 5px 0 12px;
+  color: #6b7280;
+}
+
+.ripple-info button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #374151;
+  color: white;
+  cursor: pointer;
+}
+
+.ripple-info button:hover {
+  background: #111827;
+}
