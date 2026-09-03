@@ -4,16 +4,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from pathlib import Path
-from torch_geometric.data import Data
 from torch_geometric.nn import GCNConv
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
-# --------------------------------------------------
+# ==================================================
 # Paths
-# --------------------------------------------------
+# ==================================================
 
 BASE_DIR = Path(__file__).resolve().parents[1]
+
 DATA_DIR = BASE_DIR / "data"
 MODEL_DIR = BASE_DIR / "models"
 
@@ -24,20 +24,28 @@ edges_file = DATA_DIR / "edge_index.csv"
 labels_file = DATA_DIR / "ripple_labels.csv"
 
 
-# --------------------------------------------------
-# Load data
-# --------------------------------------------------
+# ==================================================
+# Load Data
+# ==================================================
 
 nodes = pd.read_csv(nodes_file)
 edges = pd.read_csv(edges_file)
 labels = pd.read_csv(labels_file)
 
+print("===== AtmoGraph GCN Training =====")
 
-# --------------------------------------------------
-# Node features
-# --------------------------------------------------
+print("\nDataset Information:")
+print("Nodes:", len(nodes))
+print("Edges:", len(edges))
+print("Scenarios:", labels["scenario_id"].nunique())
+print("Labels:", len(labels))
 
-x = torch.tensor(
+
+# ==================================================
+# Base Node Features
+# ==================================================
+
+base_features = torch.tensor(
     nodes[
         [
             "capacity",
@@ -50,9 +58,9 @@ x = torch.tensor(
 )
 
 
-# --------------------------------------------------
-# Edge index
-# --------------------------------------------------
+# ==================================================
+# Edge Index
+# ==================================================
 
 edge_index = torch.tensor(
     edges[
@@ -65,13 +73,17 @@ edge_index = torch.tensor(
 )
 
 
-# --------------------------------------------------
-# Model
-# --------------------------------------------------
+# ==================================================
+# GCN Model
+# ==================================================
 
 class RippleGCN(nn.Module):
 
-    def __init__(self, input_features=4, hidden_features=32):
+    def __init__(
+        self,
+        input_features=5,
+        hidden_features=32
+    ):
 
         super().__init__()
 
@@ -90,25 +102,37 @@ class RippleGCN(nn.Module):
             1
         )
 
-
     def forward(self, x, edge_index):
 
-        x = self.conv1(x, edge_index)
+        x = self.conv1(
+            x,
+            edge_index
+        )
+
         x = F.relu(x)
 
-        x = self.conv2(x, edge_index)
+        x = self.conv2(
+            x,
+            edge_index
+        )
+
         x = F.relu(x)
 
         x = self.output(x)
 
-        return x.squeeze()
+        return x.squeeze(-1)
 
 
-# --------------------------------------------------
-# Training
-# --------------------------------------------------
+# ==================================================
+# Device
+# ==================================================
 
 device = torch.device("cpu")
+
+
+# ==================================================
+# Model
+# ==================================================
 
 model = RippleGCN().to(device)
 
@@ -120,37 +144,102 @@ optimizer = torch.optim.Adam(
 loss_function = nn.MSELoss()
 
 
-# --------------------------------------------------
-# Training loop
-# --------------------------------------------------
+# ==================================================
+# Training
+# ==================================================
 
-epochs = 200
+epochs = 300
 
-print("===== AtmoGraph GCN Training =====")
+scenario_ids = labels[
+    "scenario_id"
+].unique()
 
 for epoch in range(epochs):
 
     model.train()
 
-    total_loss = 0
+    total_loss = 0.0
 
-    for scenario_id in labels["scenario_id"].unique():
+    for scenario_id in scenario_ids:
 
         scenario = labels[
             labels["scenario_id"] == scenario_id
-        ]
+        ].sort_values("node_index")
+
+        # ------------------------------------------
+        # Scenario target
+        # ------------------------------------------
 
         target = torch.tensor(
-            scenario[
-                "target_delay"
-            ].values,
+            scenario["target_delay"].values,
+            dtype=torch.float
+        ).to(device)
+
+        # ------------------------------------------
+        # Find disrupted/source node
+        # ------------------------------------------
+
+        source_nodes = scenario[
+            scenario["hop_distance"] == 0
+        ]["node_index"].values
+
+        scenario_features = base_features.clone()
+
+        # ------------------------------------------
+        # Add scenario disruption signal
+        # ------------------------------------------
+
+        if len(source_nodes) > 0:
+
+            for source_node in source_nodes:
+
+                scenario_features[
+                    source_node,
+                    3
+                ] = 1.0
+
+        # ------------------------------------------
+        # Add source-node indicator
+        # ------------------------------------------
+
+        source_indicator = torch.zeros(
+            (len(nodes), 1),
             dtype=torch.float
         )
+
+        if len(source_nodes) > 0:
+
+            for source_node in source_nodes:
+
+                source_indicator[
+                    source_node,
+                    0
+                ] = 1.0
+
+        # ------------------------------------------
+        # Final node features
+        # ------------------------------------------
+
+        x = torch.cat(
+            [
+                scenario_features,
+                source_indicator
+            ],
+            dim=1
+        ).to(device)
+
+        # ------------------------------------------
+        # GCN prediction
+        # ------------------------------------------
 
         prediction = model(
             x,
             edge_index
         )
+
+        # ------------------------------------------
+        # Loss
+        # ------------------------------------------
 
         loss = loss_function(
             prediction,
@@ -165,60 +254,137 @@ for epoch in range(epochs):
 
         total_loss += loss.item()
 
+    # ----------------------------------------------
+    # Print progress
+    # ----------------------------------------------
 
-    if (epoch + 1) % 20 == 0:
+    if (epoch + 1) % 25 == 0:
+
+        average_loss = (
+            total_loss /
+            len(scenario_ids)
+        )
 
         print(
             f"Epoch [{epoch + 1}/{epochs}] "
-            f"Loss: {total_loss:.4f}"
+            f"Loss: {average_loss:.4f}"
         )
 
 
-# --------------------------------------------------
+# ==================================================
 # Evaluation
-# --------------------------------------------------
+# ==================================================
 
 model.eval()
 
+all_actual = []
+all_predictions = []
+
 with torch.no_grad():
 
-    predictions = model(
-        x,
-        edge_index
-    ).numpy()
+    for scenario_id in scenario_ids:
+
+        scenario = labels[
+            labels["scenario_id"] == scenario_id
+        ].sort_values("node_index")
+
+        target = torch.tensor(
+            scenario["target_delay"].values,
+            dtype=torch.float
+        )
+
+        source_nodes = scenario[
+            scenario["hop_distance"] == 0
+        ]["node_index"].values
+
+        scenario_features = base_features.clone()
+
+        if len(source_nodes) > 0:
+
+            for source_node in source_nodes:
+
+                scenario_features[
+                    source_node,
+                    3
+                ] = 1.0
+
+        source_indicator = torch.zeros(
+            (len(nodes), 1),
+            dtype=torch.float
+        )
+
+        if len(source_nodes) > 0:
+
+            for source_node in source_nodes:
+
+                source_indicator[
+                    source_node,
+                    0
+                ] = 1.0
+
+        x = torch.cat(
+            [
+                scenario_features,
+                source_indicator
+            ],
+            dim=1
+        )
+
+        prediction = model(
+            x,
+            edge_index
+        )
+
+        all_actual.extend(
+            target.numpy()
+        )
+
+        all_predictions.extend(
+            prediction.numpy()
+        )
 
 
-actual = labels[
-    labels["scenario_id"] ==
-    labels["scenario_id"].iloc[0]
-]["target_delay"].values
-
-
-predictions = predictions[:len(actual)]
-
+# ==================================================
+# Metrics
+# ==================================================
 
 mae = mean_absolute_error(
-    actual,
-    predictions
+    all_actual,
+    all_predictions
 )
 
 rmse = mean_squared_error(
-    actual,
-    predictions
+    all_actual,
+    all_predictions
 ) ** 0.5
 
 
 print("\n===== Evaluation =====")
 
-print("MAE :", round(mae, 2))
-print("RMSE:", round(rmse, 2))
+print(
+    "Total Predictions:",
+    len(all_predictions)
+)
+
+print(
+    "MAE :",
+    round(mae, 2)
+)
+
+print(
+    "RMSE:",
+    round(rmse, 2)
+)
 
 
-# --------------------------------------------------
-# Save model
-# --------------------------------------------------
+# ==================================================
+# Save Model
+# ==================================================
 
-model_path = MODEL_DIR / "ripple_gcn.pth"
+model_path = (
+    MODEL_DIR /
+    "ripple_gcn.pth"
+)
 
 torch.save(
     model.state_dict(),
