@@ -178,15 +178,15 @@ function App() {
       style: {
         ...(matchesSearch
           ? {
-              boxShadow: "0 0 20px 6px #3b82f6",
-              border: "3px solid #3b82f6",
-            }
+            boxShadow: "0 0 20px 6px #3b82f6",
+            border: "3px solid #3b82f6",
+          }
           : {}),
         ...(isRippleNode
           ? {
-              boxShadow: "0 0 18px 5px #f97316",
-              border: "3px solid #f97316",
-            }
+            boxShadow: "0 0 18px 5px #f97316",
+            border: "3px solid #f97316",
+          }
           : {}),
       },
     };
@@ -202,9 +202,9 @@ function App() {
       animated: isRippleEdge,
       style: isRippleEdge
         ? {
-            stroke: "#f97316",
-            strokeWidth: 3,
-          }
+          stroke: "#f97316",
+          strokeWidth: 3,
+        }
         : {},
     };
   });
@@ -247,7 +247,29 @@ function App() {
             </span>
           </div>
         </div>
+        <div className="risk-legend">
+          <h3>Risk Level</h3>
 
+          <div>
+            <span className="legend-dot low"></span>
+            Low
+          </div>
+
+          <div>
+            <span className="legend-dot medium"></span>
+            Medium
+          </div>
+
+          <div>
+            <span className="legend-dot high"></span>
+            High
+          </div>
+
+          <div>
+            <span className="legend-dot ripple"></span>
+            Ripple Effect
+          </div>
+        </div>
         <div className="search-box">
           <input
             type="text"
