@@ -200,3 +200,10 @@ ml/models/ripple_gcn.pth
 * [ ] Frontend Predictive Visualization
 * [ ] Real-Time Pipeline
 * [ ] Final Testing & Optimization
+
+
+Week 4:
+- Integrated Neo4j disruption data with GCN model
+- Generated ripple effect predictions
+- Stored predicted delay values back into Neo4j
+- Verified downstream delay predictions
