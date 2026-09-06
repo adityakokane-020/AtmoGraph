@@ -12,7 +12,7 @@ DATABASE = "atmograph"
 
 
 # --------------------------------------------------
-# Update Risk
+# Update Risk + Disruption
 # --------------------------------------------------
 
 def update_node_risk(node_id, severity):
@@ -26,13 +26,17 @@ def update_node_risk(node_id, severity):
 
         with driver.session(database=DATABASE) as session:
 
-            # Check database and node first
+            # ------------------------------------------
+            # Check Node
+            # ------------------------------------------
+
             result = session.run(
                 """
                 MATCH (n {id: $node_id})
-                RETURN n.id AS ID,
-                       n.name AS Name,
-                       n.risk AS Risk
+                RETURN
+                    n.id AS ID,
+                    n.name AS Name,
+                    n.risk AS Risk
                 """,
                 node_id=node_id
             )
@@ -46,14 +50,21 @@ def update_node_risk(node_id, severity):
                 print("Node Name:", record["Name"])
                 print("Current Risk:", record["Risk"])
 
-                # Update risk
+                # --------------------------------------
+                # Update Risk + Disruption
+                # --------------------------------------
+
                 update_result = session.run(
                     """
                     MATCH (n {id: $node_id})
-                    SET n.risk = $severity
-                    RETURN n.id AS ID,
-                           n.name AS Name,
-                           n.risk AS Risk
+                    SET
+                        n.risk = $severity,
+                        n.disruption = 1
+                    RETURN
+                        n.id AS ID,
+                        n.name AS Name,
+                        n.risk AS Risk,
+                        n.disruption AS Disruption
                     """,
                     node_id=node_id,
                     severity=severity
@@ -65,12 +76,16 @@ def update_node_risk(node_id, severity):
                 print("Node ID:", updated["ID"])
                 print("Node Name:", updated["Name"])
                 print("Updated Risk:", updated["Risk"])
+                print("Disruption:", updated["Disruption"])
 
             else:
 
                 print("Node not found:", node_id)
 
-                # Show available node IDs
+                # --------------------------------------
+                # Show Available Node IDs
+                # --------------------------------------
+
                 check = session.run(
                     """
                     MATCH (n)
@@ -98,4 +113,7 @@ if __name__ == "__main__":
     node_id = "P001"
     severity = "HIGH"
 
-    update_node_risk(node_id, severity)
+    update_node_risk(
+        node_id,
+        severity
+    )

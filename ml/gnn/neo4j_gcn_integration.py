@@ -102,7 +102,7 @@ def get_disrupted_nodes():
 
 
 # --------------------------------------------------
-# Update Predictions in Neo4j
+# Update Predictions + Risk in Neo4j
 # --------------------------------------------------
 
 def update_predictions(predictions):
@@ -114,7 +114,8 @@ def update_predictions(predictions):
 
     query = """
     MATCH (n {id: $id})
-    SET n.predicted_delay = $predicted_delay
+    SET n.predicted_delay = $predicted_delay,
+        n.predicted_risk = $predicted_risk
     RETURN n.id AS id
     """
 
@@ -122,12 +123,29 @@ def update_predictions(predictions):
 
         for prediction in predictions:
 
+            delay = float(
+                prediction["predicted_delay"]
+            )
+
+            # Risk Classification
+
+            if delay > 15:
+                risk = "Critical"
+
+            elif delay > 7:
+                risk = "High"
+
+            elif delay > 2:
+                risk = "Medium"
+
+            else:
+                risk = "Low"
+
             session.run(
                 query,
                 id=prediction["id"],
-                predicted_delay=float(
-                    prediction["predicted_delay"]
-                )
+                predicted_delay=delay,
+                predicted_risk=risk
             )
 
     driver.close()
@@ -196,7 +214,9 @@ x = torch.tensor(
 )
 
 
-# Source indicator
+# --------------------------------------------------
+# Multiple Source Node Indicators
+# --------------------------------------------------
 
 source_indicator = torch.zeros(
     (len(nodes), 1),
@@ -204,33 +224,36 @@ source_indicator = torch.zeros(
 )
 
 
-# Use first disrupted node
+print("\nDisruption Sources Used For Prediction:")
 
-source_node_id = disrupted_nodes[0]["id"]
+for disrupted_node in disrupted_nodes:
 
+    source_node_id = disrupted_node["id"]
 
-source_rows = nodes[
-    nodes["id"] == source_node_id
-]
+    source_rows = nodes[
+        nodes["id"] == source_node_id
+    ]
 
+    if source_rows.empty:
 
-if source_rows.empty:
+        print(
+            f"WARNING: {source_node_id} "
+            "not found in node_features.csv"
+        )
+
+        continue
+
+    source_index = source_rows.index[0]
+
+    source_indicator[
+        source_index,
+        0
+    ] = 1.0
 
     print(
-        f"\nERROR: {source_node_id} "
-        "not found in node_features.csv"
+        f"{source_node_id} | "
+        f"{disrupted_node['name']}"
     )
-
-    exit()
-
-
-source_index = source_rows.index[0]
-
-source_indicator[
-    source_index,
-    0
-] = 1.0
-
 
 # Combine features
 
