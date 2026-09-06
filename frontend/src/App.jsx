@@ -229,7 +229,27 @@ function App() {
       </header>
 
       <main className="graph-container">
+      <div className="prediction-panel">
+  <h3>Prediction Timeline</h3>
 
+  <div className="prediction-item">
+    <strong>30 Days</strong>
+    <span className="prediction-medium">Medium Risk</span>
+    <p>Estimated Delay: 12 Days</p>
+  </div>
+
+  <div className="prediction-item">
+    <strong>60 Days</strong>
+    <span className="prediction-high">High Risk</span>
+    <p>Estimated Delay: 25 Days</p>
+  </div>
+
+  <div className="prediction-item">
+    <strong>90 Days</strong>
+    <span className="prediction-high">High Risk</span>
+    <p>Estimated Delay: 40 Days</p>
+  </div>
+</div>
         <div className="risk-summary">
           <h3>Risk Overview</h3>
 

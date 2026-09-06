@@ -226,3 +226,54 @@
 .legend-dot.ripple {
   background: #f97316;
 }
+.prediction-panel {
+  position: fixed;
+  top: 140px;
+  right: 30px;
+  width: 230px;
+  padding: 18px 20px;
+  background: white;
+  color: #111827;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+}
+
+.prediction-panel h3 {
+  margin: 0 0 15px;
+  text-align: center;
+  font-size: 17px;
+}
+
+.prediction-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.prediction-item:last-child {
+  border-bottom: none;
+}
+
+.prediction-item strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.prediction-item span {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.prediction-item p {
+  margin: 5px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.prediction-medium {
+  color: #ca8a04;
+}
+
+.prediction-high {
+  color: #dc2626;
+}
