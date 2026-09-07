@@ -37,6 +37,8 @@ def create_company(company: Company):
         "message": "Company created successfully",
         "company": dict(record["c"])
     }
+
+
 class SupplyRelationship(BaseModel):
     supplier: str
     company: str
@@ -71,6 +73,8 @@ def create_supply_relationship(data: SupplyRelationship):
         "supplier": data.supplier,
         "company": data.company
     }
+
+
 class Port(BaseModel):
     name: str
     country: str
@@ -98,6 +102,8 @@ def create_port(port: Port):
         "message": "Port created successfully",
         "port": dict(record["p"])
     }
+
+
 class PortRelationship(BaseModel):
     company: str
     port: str
@@ -132,6 +138,8 @@ def create_port_relationship(data: PortRelationship):
         "company": data.company,
         "port": data.port
     }
+
+
 class Disruption(BaseModel):
     type: str
     description: str
@@ -164,6 +172,8 @@ def create_disruption(disruption: Disruption):
         "message": "Disruption created successfully",
         "disruption": dict(record["d"])
     }
+
+
 class DisruptionRelationship(BaseModel):
     port: str
     disruption_type: str
@@ -198,6 +208,8 @@ def create_disruption_relationship(data: DisruptionRelationship):
         "port": data.port,
         "disruption": data.disruption_type
     }
+
+
 @router.get("/graph")
 def get_graph():
 
@@ -224,7 +236,7 @@ def get_graph():
 
                 nodes[node_id] = {
                     "id": node_id,
-                    "label": source.get("name"),
+                    "label": source.get("name") or source.get("type"),
                     "type": list(source.labels)[0]
                 }
 
@@ -233,7 +245,7 @@ def get_graph():
 
                 nodes[node_id] = {
                     "id": node_id,
-                    "label": target.get("name"),
+                    "label": target.get("name") or target.get("type"),
                     "type": list(target.labels)[0]
                 }
 
@@ -248,6 +260,7 @@ def get_graph():
         "nodes": list(nodes.values()),
         "relationships": relationships
     }
+
 
 @router.get("/ripple-effect/{disruption_type}")
 def get_ripple_effect(disruption_type: str):
