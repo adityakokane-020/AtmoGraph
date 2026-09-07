@@ -144,7 +144,7 @@ function App() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [search, setSearch] = useState("");
   const [rippleNodes, setRippleNodes] = useState([]);
-
+  const [showGraph, setShowGraph] = useState(false);
   const handleNodeClick = (event, node) => {
     setSelectedNode(node);
 
@@ -221,6 +221,63 @@ function App() {
     (node) => node.data.risk === "High"
   ).length;
 
+  if (!showGraph) {
+    return (
+      <div className="landing-page">
+
+        <div className="landing-content">
+
+          <div className="landing-badge">
+            AI-POWERED SUPPLY CHAIN INTELLIGENCE
+          </div>
+
+          <h1>AtmoGraph</h1>
+
+          <h2>
+            Supply Chain Ripple Effect Predictor
+          </h2>
+
+          <p>
+            Visualize supply chain networks, identify risk,
+            and understand how disruptions propagate across
+            connected entities.
+          </p>
+
+          <div className="landing-features">
+
+            <div className="feature-card">
+              <span>🌐</span>
+              <h3>Network Graph</h3>
+              <p>Explore interconnected supply chain entities.</p>
+            </div>
+
+            <div className="feature-card">
+              <span>⚠️</span>
+              <h3>Risk Analysis</h3>
+              <p>Monitor and visualize supply chain risks.</p>
+            </div>
+
+            <div className="feature-card">
+              <span>📈</span>
+              <h3>Prediction</h3>
+              <p>Understand potential downstream impacts.</p>
+            </div>
+
+          </div>
+
+          <button
+            className="show-graph-btn"
+            onClick={() => setShowGraph(true)}
+          >
+            Show Supply Chain Graph
+            <span>→</span>
+          </button>
+
+        </div>
+
+      </div>
+    );
+  }
   return (
     <div className="app">
       <header className="header">
@@ -229,27 +286,27 @@ function App() {
       </header>
 
       <main className="graph-container">
-      <div className="prediction-panel">
-  <h3>Prediction Timeline</h3>
+        <div className="prediction-panel">
+          <h3>Prediction Timeline</h3>
 
-  <div className="prediction-item">
-    <strong>30 Days</strong>
-    <span className="prediction-medium">Medium Risk</span>
-    <p>Estimated Delay: 12 Days</p>
-  </div>
+          <div className="prediction-item">
+            <strong>30 Days</strong>
+            <span className="prediction-medium">Medium Risk</span>
+            <p>Estimated Delay: 12 Days</p>
+          </div>
 
-  <div className="prediction-item">
-    <strong>60 Days</strong>
-    <span className="prediction-high">High Risk</span>
-    <p>Estimated Delay: 25 Days</p>
-  </div>
+          <div className="prediction-item">
+            <strong>60 Days</strong>
+            <span className="prediction-high">High Risk</span>
+            <p>Estimated Delay: 25 Days</p>
+          </div>
 
-  <div className="prediction-item">
-    <strong>90 Days</strong>
-    <span className="prediction-high">High Risk</span>
-    <p>Estimated Delay: 40 Days</p>
-  </div>
-</div>
+          <div className="prediction-item">
+            <strong>90 Days</strong>
+            <span className="prediction-high">High Risk</span>
+            <p>Estimated Delay: 40 Days</p>
+          </div>
+        </div>
         <div className="risk-summary">
           <h3>Risk Overview</h3>
 
@@ -304,9 +361,19 @@ function App() {
           edges={edgesWithRipple}
           onNodeClick={handleNodeClick}
           fitView
+          fitViewOptions={{
+            padding: 0.08,
+            minZoom: 0.7,
+            maxZoom: 1.2,
+          }}
+          zoomOnScroll={false}
+          zoomOnPinch={false}
+          zoomOnDoubleClick={false}
+          panOnDrag={false}
+          nodesDraggable={false}
+          nodesConnectable={false}
         >
           <Controls />
-          <MiniMap />
           <Background />
         </ReactFlow>
 
