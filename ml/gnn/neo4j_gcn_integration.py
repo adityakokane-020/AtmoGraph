@@ -71,7 +71,7 @@ class RippleGCN(nn.Module):
 
 
 # --------------------------------------------------
-# Get Disrupted Node From Neo4j
+# Get Disrupted Nodes From Neo4j
 # --------------------------------------------------
 
 def get_disrupted_nodes():
@@ -91,14 +91,14 @@ def get_disrupted_nodes():
 
         result = session.run(query)
 
-        nodes = [
+        disrupted_nodes = [
             record.data()
             for record in result
         ]
 
     driver.close()
 
-    return nodes
+    return disrupted_nodes
 
 
 # --------------------------------------------------
@@ -152,237 +152,276 @@ def update_predictions(predictions):
 
 
 # --------------------------------------------------
-# Main Pipeline
+# Complete GCN Pipeline Function
 # --------------------------------------------------
 
-print("==========================================")
-print("   AtmoGraph Neo4j → GCN Integration")
-print("==========================================")
+def run_gcn_pipeline():
+
+    print("==========================================")
+    print("   AtmoGraph Neo4j → GCN Integration")
+    print("==========================================")
 
 
-# --------------------------------------------------
-# 1. Read Disruption From Neo4j
-# --------------------------------------------------
+    # --------------------------------------------------
+    # 1. Read Disruption From Neo4j
+    # --------------------------------------------------
 
-disrupted_nodes = get_disrupted_nodes()
+    disrupted_nodes = get_disrupted_nodes()
 
-print("\n[1] Disrupted Nodes From Neo4j:")
+    print("\n[1] Disrupted Nodes From Neo4j:")
 
-if not disrupted_nodes:
+    if not disrupted_nodes:
 
-    print("No disrupted node found.")
-    exit()
+        print("No disrupted node found.")
 
-for node in disrupted_nodes:
-
-    print(
-        f"{node['id']} | "
-        f"{node['name']} | "
-        f"Risk: {node['risk']}"
-    )
+        return
 
 
-# --------------------------------------------------
-# 2. Load Graph Data
-# --------------------------------------------------
-
-nodes = pd.read_csv(nodes_file)
-edges = pd.read_csv(edges_file)
-
-print("\n[2] Graph Loaded")
-
-print("Nodes:", len(nodes))
-print("Edges:", len(edges))
-
-
-# --------------------------------------------------
-# 3. Create GCN Features
-# --------------------------------------------------
-
-x = torch.tensor(
-
-    nodes[
-        [
-            "capacity",
-            "delay",
-            "risk_value",
-            "disruption_value"
-        ]
-    ].values,
-
-    dtype=torch.float
-)
-
-
-# --------------------------------------------------
-# Multiple Source Node Indicators
-# --------------------------------------------------
-
-source_indicator = torch.zeros(
-    (len(nodes), 1),
-    dtype=torch.float
-)
-
-
-print("\nDisruption Sources Used For Prediction:")
-
-for disrupted_node in disrupted_nodes:
-
-    source_node_id = disrupted_node["id"]
-
-    source_rows = nodes[
-        nodes["id"] == source_node_id
-    ]
-
-    if source_rows.empty:
+    for node in disrupted_nodes:
 
         print(
-            f"WARNING: {source_node_id} "
-            "not found in node_features.csv"
+            f"{node['id']} | "
+            f"{node['name']} | "
+            f"Risk: {node['risk']}"
         )
 
-        continue
 
-    source_index = source_rows.index[0]
+    # --------------------------------------------------
+    # 2. Load Graph Data
+    # --------------------------------------------------
 
-    source_indicator[
-        source_index,
-        0
-    ] = 1.0
+    nodes = pd.read_csv(nodes_file)
+    edges = pd.read_csv(edges_file)
 
-    print(
-        f"{source_node_id} | "
-        f"{disrupted_node['name']}"
+    print("\n[2] Graph Loaded")
+
+    print("Nodes:", len(nodes))
+    print("Edges:", len(edges))
+
+
+    # --------------------------------------------------
+    # 3. Create Base GCN Features
+    # --------------------------------------------------
+
+    x = torch.tensor(
+
+        nodes[
+            [
+                "capacity",
+                "delay",
+                "risk_value",
+                "disruption_value"
+            ]
+        ].values,
+
+        dtype=torch.float
     )
 
-# Combine features
 
-x = torch.cat(
-    [
-        x,
-        source_indicator
-    ],
-    dim=1
-)
+    # --------------------------------------------------
+    # 4. Multiple Source Node Indicators
+    # --------------------------------------------------
+
+    source_indicator = torch.zeros(
+        (len(nodes), 1),
+        dtype=torch.float
+    )
 
 
-# --------------------------------------------------
-# 4. Edge Index
-# --------------------------------------------------
+    print("\nDisruption Sources Used For Prediction:")
 
-edge_index = torch.tensor(
 
-    edges[
-        [
-            "source_index",
-            "target_index"
+    for disrupted_node in disrupted_nodes:
+
+        source_node_id = disrupted_node["id"]
+
+        source_rows = nodes[
+            nodes["id"] == source_node_id
         ]
-    ].values.T,
-
-    dtype=torch.long
-)
 
 
-# --------------------------------------------------
-# 5. Load Trained GCN
-# --------------------------------------------------
+        if source_rows.empty:
 
-model = RippleGCN()
+            print(
+                f"WARNING: {source_node_id} "
+                "not found in node_features.csv"
+            )
 
-model.load_state_dict(
+            continue
 
-    torch.load(
-        model_path,
-        map_location=torch.device("cpu")
+
+        source_index = source_rows.index[0]
+
+        source_indicator[
+            source_index,
+            0
+        ] = 1.0
+
+
+        print(
+            f"{source_node_id} | "
+            f"{disrupted_node['name']}"
+        )
+
+
+    # --------------------------------------------------
+    # Combine Features
+    # --------------------------------------------------
+
+    x = torch.cat(
+        [
+            x,
+            source_indicator
+        ],
+        dim=1
     )
-)
-
-model.eval()
-
-print("\n[3] Trained GCN Model Loaded")
 
 
-# --------------------------------------------------
-# 6. GCN Prediction
-# --------------------------------------------------
+    # --------------------------------------------------
+    # 5. Edge Index
+    # --------------------------------------------------
 
-with torch.no_grad():
+    edge_index = torch.tensor(
 
-    predictions = model(
-        x,
-        edge_index
-    ).numpy()
+        edges[
+            [
+                "source_index",
+                "target_index"
+            ]
+        ].values.T,
 
-
-# --------------------------------------------------
-# 7. Create Results
-# --------------------------------------------------
-
-results = nodes[
-    [
-        "id",
-        "type",
-        "country"
-    ]
-].copy()
+        dtype=torch.long
+    )
 
 
-results["predicted_delay"] = predictions
+    # --------------------------------------------------
+    # 6. Load Trained GCN
+    # --------------------------------------------------
+
+    model = RippleGCN()
 
 
-results["predicted_delay"] = results[
-    "predicted_delay"
-].clip(lower=0)
+    model.load_state_dict(
+
+        torch.load(
+            model_path,
+            map_location=torch.device("cpu")
+        )
+    )
 
 
-results = results.sort_values(
-    by="predicted_delay",
-    ascending=False
-)
+    model.eval()
 
 
-print("\n[4] Ripple Effect Predictions")
+    print("\n[3] Trained GCN Model Loaded")
 
-for _, row in results.head(10).iterrows():
+
+    # --------------------------------------------------
+    # 7. GCN Prediction
+    # --------------------------------------------------
+
+    with torch.no_grad():
+
+        predictions = model(
+            x,
+            edge_index
+        ).numpy()
+
+
+    # --------------------------------------------------
+    # 8. Create Results
+    # --------------------------------------------------
+
+    results = nodes[
+        [
+            "id",
+            "type",
+            "country"
+        ]
+    ].copy()
+
+
+    results["predicted_delay"] = predictions
+
+
+    results["predicted_delay"] = results[
+        "predicted_delay"
+    ].clip(lower=0)
+
+
+    results = results.sort_values(
+        by="predicted_delay",
+        ascending=False
+    )
+
+
+    # --------------------------------------------------
+    # Display Results
+    # --------------------------------------------------
+
+    print("\n[4] Ripple Effect Predictions")
+
+
+    for _, row in results.head(10).iterrows():
+
+        print(
+            f"{row['id']} | "
+            f"{row['type']} | "
+            f"{row['country']} | "
+            f"{row['predicted_delay']:.2f} days"
+        )
+
+
+    # --------------------------------------------------
+    # 9. Prepare Prediction Records
+    # --------------------------------------------------
+
+    prediction_records = []
+
+
+    for _, row in results.iterrows():
+
+        prediction_records.append(
+
+            {
+                "id": row["id"],
+                "predicted_delay":
+                    row["predicted_delay"]
+            }
+        )
+
+
+    # --------------------------------------------------
+    # 10. Update Neo4j
+    # --------------------------------------------------
+
+    update_predictions(
+        prediction_records
+    )
+
+
+    print("\n[5] Neo4j Updated Successfully")
 
     print(
-        f"{row['id']} | "
-        f"{row['type']} | "
-        f"{row['country']} | "
-        f"{row['predicted_delay']:.2f} days"
+        "Predicted delay and predicted risk "
+        "added to supply-chain nodes."
     )
 
 
+    print("\n==========================================")
+    print("        Integration Completed")
+    print("==========================================")
+
+
+    # Return results for future API usage
+
+    return results
+
+
 # --------------------------------------------------
-# 8. Update Neo4j
+# Direct Execution
 # --------------------------------------------------
 
-prediction_records = []
+if __name__ == "__main__":
 
-for _, row in results.iterrows():
-
-    prediction_records.append(
-        {
-            "id": row["id"],
-            "predicted_delay":
-                row["predicted_delay"]
-        }
-    )
-
-
-update_predictions(
-    prediction_records
-)
-
-
-print("\n[5] Neo4j Updated Successfully")
-
-print(
-    "predicted_delay property added "
-    "to supply-chain nodes."
-)
-
-
-print("\n==========================================")
-print("        Integration Completed")
-print("==========================================")
+    run_gcn_pipeline()
