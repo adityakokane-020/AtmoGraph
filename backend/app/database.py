@@ -1,14 +1,18 @@
+import os
+
+from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
 
-# Neo4j connection details
-NEO4J_URI = "neo4j://127.0.0.1:7687"
-NEO4J_USERNAME = "neo4j"
+load_dotenv()
 
-# IMPORTANT:
-# Replace ONLY this value with the password you created
-# when you created the AtmoGraph database.
-NEO4J_PASSWORD = "Baji@151098"
+NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+
+
+if not all([NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD]):
+    raise ValueError("Neo4j environment variables are not configured.")
 
 
 driver = GraphDatabase.driver(
