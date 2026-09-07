@@ -248,3 +248,57 @@ def get_graph():
         "nodes": list(nodes.values()),
         "relationships": relationships
     }
+
+@router.get("/ripple-effect/{disruption_type}")
+def get_ripple_effect(disruption_type: str):
+
+    query = """
+    MATCH (d:Disruption {type: $disruption_type})
+    MATCH (p:Port)-[:AFFECTED_BY]->(d)
+    MATCH (c:Company)-[:USES_PORT]->(p)
+
+    OPTIONAL MATCH path =
+        (s:Company)-[:SUPPLIES*1..5]->(c)
+
+    RETURN d,
+           p.name AS port,
+           c.name AS affected_company,
+           collect(DISTINCT {
+               supplier: s.name,
+               supplier_level: length(path) + 1
+           }) AS suppliers
+    """
+
+    with driver.session() as session:
+        result = session.run(
+            query,
+            disruption_type=disruption_type
+        )
+
+        record = result.single()
+
+    if not record:
+        return {
+            "message": "Disruption not found"
+        }
+
+    ripple_effect = [
+        {
+            "company": record["affected_company"],
+            "port": record["port"],
+            "impact_level": 1
+        }
+    ]
+
+    for supplier in record["suppliers"]:
+        if supplier["supplier"] is not None:
+            ripple_effect.append({
+                "company": supplier["supplier"],
+                "port": record["port"],
+                "impact_level": supplier["supplier_level"]
+            })
+
+    return {
+        "disruption": dict(record["d"]),
+        "ripple_effect": ripple_effect
+    }
