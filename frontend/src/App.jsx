@@ -99,18 +99,6 @@ const getRiskClass = (risk) => {
   return "low-risk";
 };
 
-const getRiskFromImpactLevel = (impactLevel) => {
-  if (impactLevel >= 2) {
-    return "High";
-  }
-
-  if (impactLevel === 1) {
-    return "Medium";
-  }
-
-  return "Low";
-};
-
 // -----------------------------
 // Main App
 // -----------------------------
@@ -162,32 +150,22 @@ function App() {
             y: 300,
           };
 
-          // Supplier
           if (node.label === "Steel Supplier Ltd") {
             position = {
               x: 80,
               y: 300,
             };
-          }
-
-          // Tata Motors
-          else if (node.label === "Tata Motors") {
+          } else if (node.label === "Tata Motors") {
             position = {
               x: 360,
               y: 300,
             };
-          }
-
-          // Mumbai Port
-          else if (node.label === "Mumbai Port") {
+          } else if (node.label === "Mumbai Port") {
             position = {
               x: 640,
               y: 300,
             };
-          }
-
-          // Port Closure
-          else if (node.label === "Port Closure") {
+          } else if (node.label === "Port Closure") {
             position = {
               x: 920,
               y: 300,
@@ -205,6 +183,7 @@ function App() {
               location: "Not available",
               status: "Normal",
               risk: "Low",
+              riskScore: 0,
               riskClass: "low-risk",
             },
           };
@@ -217,14 +196,10 @@ function App() {
         const graphEdges = data.relationships.map(
           (relationship, index) => ({
             id: `edge-${index}`,
-
             source: relationship.source,
             target: relationship.target,
-
             label: relationship.type,
-
             type: "smoothstep",
-
             animated: false,
 
             style: {
@@ -303,58 +278,60 @@ function App() {
         setRipplePrediction(data);
 
         // -----------------------------
-        // Create impact lookup
-        // -----------------------------
-
-        const impactLookup = {};
-
-        data.ripple_effect.forEach((impact) => {
-          impactLookup[impact.company] =
-            impact.impact_level;
-        });
-
-        // -----------------------------
-        // Update Node Risk
+        // Update Nodes Using Backend Risk
         // -----------------------------
 
         const updatedNodes = nodes.map(
           (graphNode) => {
-            let risk = "Low";
-
             // Disruption gets its backend severity
-            if (
-              graphNode.id === node.id &&
-              data.disruption.severity
-            ) {
-              risk = data.disruption.severity;
+            if (graphNode.id === node.id) {
+              const risk =
+                data.disruption.severity || "Low";
+
+              return {
+                ...graphNode,
+
+                data: {
+                  ...graphNode.data,
+                  risk,
+                  riskScore: 0,
+                  status: "Active Disruption",
+                  riskClass: getRiskClass(risk),
+                },
+              };
             }
 
-            // Companies get risk from impact level
-            else if (
-              impactLookup[graphNode.data.label] !==
-              undefined
-            ) {
-              risk = getRiskFromImpactLevel(
-                impactLookup[graphNode.data.label]
-              );
+            // Find backend prediction for company
+            const impact = data.ripple_effect.find(
+              (item) =>
+                item.company ===
+                graphNode.data.label
+            );
+
+            if (impact) {
+              return {
+                ...graphNode,
+
+                data: {
+                  ...graphNode.data,
+                  risk: impact.risk,
+                  riskScore: impact.risk_score,
+                  status: "Affected",
+                  riskClass: getRiskClass(
+                    impact.risk
+                  ),
+                },
+              };
             }
 
-            return {
-              ...graphNode,
-
-              data: {
-                ...graphNode.data,
-                risk,
-                riskClass: getRiskClass(risk),
-              },
-            };
+            return graphNode;
           }
         );
 
         setNodes(updatedNodes);
 
         // -----------------------------
-        // Find Affected Frontend Nodes
+        // Find Affected Nodes
         // -----------------------------
 
         const affectedCompanyNames =
@@ -370,14 +347,14 @@ function App() {
           )
           .map((graphNode) => graphNode.id);
 
-        // Also highlight the disruption itself
+        // Also highlight disruption
         affectedNodeIds.push(node.id);
 
         setRippleNodes([
           ...new Set(affectedNodeIds),
         ]);
 
-        // Update selected node with new risk
+        // Update selected node
         const updatedSelectedNode =
           updatedNodes.find(
             (graphNode) =>
@@ -407,7 +384,7 @@ function App() {
     }
 
     // -----------------------------
-    // Normal Graph Traversal
+    // Normal Node Click
     // -----------------------------
 
     setRipplePrediction(null);
@@ -544,7 +521,6 @@ function App() {
     setRipplePrediction(null);
     setSelectedNode(null);
 
-    // Reset all risks to Low
     setNodes((currentNodes) =>
       currentNodes.map((node) => ({
         ...node,
@@ -552,6 +528,8 @@ function App() {
         data: {
           ...node.data,
           risk: "Low",
+          riskScore: 0,
+          status: "Normal",
           riskClass: "low-risk",
         },
       }))
@@ -565,6 +543,7 @@ function App() {
   if (!showGraph) {
     return (
       <div className="landing-page">
+
         <div className="landing-content">
 
           <div className="landing-badge">
@@ -591,6 +570,7 @@ function App() {
           <div className="landing-features">
 
             <div className="feature-card">
+
               <span>🌐</span>
 
               <h3>
@@ -601,9 +581,11 @@ function App() {
                 Explore interconnected
                 supply chain entities.
               </p>
+
             </div>
 
             <div className="feature-card">
+
               <span>⚠️</span>
 
               <h3>
@@ -614,9 +596,11 @@ function App() {
                 Monitor and visualize
                 supply chain risks.
               </p>
+
             </div>
 
             <div className="feature-card">
+
               <span>📈</span>
 
               <h3>
@@ -627,6 +611,7 @@ function App() {
                 Understand potential
                 downstream impacts.
               </p>
+
             </div>
 
           </div>
@@ -645,6 +630,7 @@ function App() {
           </button>
 
         </div>
+
       </div>
     );
   }
@@ -727,7 +713,9 @@ function App() {
           </h3>
 
           {ripplePrediction ? (
+
             <>
+
               <div className="prediction-item">
 
                 <strong>
@@ -742,7 +730,9 @@ function App() {
                       : "prediction-medium"
                   }
                 >
-                  {ripplePrediction.disruption.severity} Risk
+                  {ripplePrediction.disruption.severity}
+                  {" "}
+                  Risk
                 </span>
 
                 <p>
@@ -764,8 +754,11 @@ function App() {
                 </p>
 
               </div>
+
             </>
+
           ) : (
+
             <div className="prediction-item">
 
               <strong>
@@ -778,6 +771,7 @@ function App() {
               </p>
 
             </div>
+
           )}
 
         </div>
@@ -921,6 +915,7 @@ function App() {
                           "rgba(255,255,255,0.08)",
                       }}
                     >
+
                       <strong>
                         {impact.company}
                       </strong>
@@ -933,6 +928,26 @@ function App() {
                       >
                         Impact Level{" "}
                         {impact.impact_level}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          marginTop: "3px",
+                        }}
+                      >
+                        Risk:{" "}
+                        {impact.risk}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          marginTop: "3px",
+                        }}
+                      >
+                        Risk Score:{" "}
+                        {impact.risk_score}
                       </div>
 
                     </div>
@@ -1005,6 +1020,15 @@ function App() {
               </strong>{" "}
               {selectedNode.data.risk}
             </p>
+
+            {selectedNode.data.riskScore > 0 && (
+              <p>
+                <strong>
+                  Risk Score:
+                </strong>{" "}
+                {selectedNode.data.riskScore}
+              </p>
+            )}
 
             <button
               onClick={() => {
