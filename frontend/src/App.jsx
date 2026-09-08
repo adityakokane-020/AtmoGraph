@@ -13,7 +13,6 @@ import "./App.css";
 
 const API_URL = "http://127.0.0.1:8000";
 
-
 // -----------------------------
 // Custom Node
 // -----------------------------
@@ -76,7 +75,6 @@ function SupplyChainNode({ data }) {
   );
 }
 
-
 // -----------------------------
 // Node Types
 // -----------------------------
@@ -84,7 +82,6 @@ function SupplyChainNode({ data }) {
 const nodeTypes = {
   supplyChain: SupplyChainNode,
 };
-
 
 // -----------------------------
 // Risk Helper
@@ -102,6 +99,17 @@ const getRiskClass = (risk) => {
   return "low-risk";
 };
 
+const getRiskFromImpactLevel = (impactLevel) => {
+  if (impactLevel >= 2) {
+    return "High";
+  }
+
+  if (impactLevel === 1) {
+    return "Medium";
+  }
+
+  return "Low";
+};
 
 // -----------------------------
 // Main App
@@ -113,13 +121,14 @@ function App() {
 
   const [selectedNode, setSelectedNode] = useState(null);
   const [search, setSearch] = useState("");
+
   const [rippleNodes, setRippleNodes] = useState([]);
+  const [ripplePrediction, setRipplePrediction] = useState(null);
 
   const [showGraph, setShowGraph] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
 
   // -----------------------------
   // Load Graph From Backend
@@ -143,7 +152,6 @@ function App() {
 
         console.log("Graph data received:", data);
 
-
         // -----------------------------
         // Create Node Positions
         // -----------------------------
@@ -154,74 +162,53 @@ function App() {
             y: 300,
           };
 
-
           // Supplier
-          if (
-            node.label === "Steel Supplier Ltd"
-          ) {
+          if (node.label === "Steel Supplier Ltd") {
             position = {
               x: 80,
               y: 300,
             };
           }
 
-
           // Tata Motors
-          else if (
-            node.label === "Tata Motors"
-          ) {
+          else if (node.label === "Tata Motors") {
             position = {
               x: 360,
               y: 300,
             };
           }
 
-
           // Mumbai Port
-          else if (
-            node.label === "Mumbai Port"
-          ) {
+          else if (node.label === "Mumbai Port") {
             position = {
               x: 640,
               y: 300,
             };
           }
 
-
           // Port Closure
-          else if (
-            node.label === "Port Closure"
-          ) {
+          else if (node.label === "Port Closure") {
             position = {
               x: 920,
               y: 300,
             };
           }
 
-
           return {
             id: node.id,
-
             type: "supplyChain",
-
             position,
 
             data: {
               label: node.label || "Unnamed Node",
-
               type: node.type || "Unknown",
-
               location: "Not available",
-
               status: "Normal",
-
               risk: "Low",
-
               riskClass: "low-risk",
             },
           };
         });
-
 
         // -----------------------------
         // Create Relationships
@@ -232,7 +219,6 @@ function App() {
             id: `edge-${index}`,
 
             source: relationship.source,
-
             target: relationship.target,
 
             label: relationship.type,
@@ -258,16 +244,12 @@ function App() {
             },
 
             labelBgPadding: [6, 4],
-
             labelBgBorderRadius: 4,
           })
         );
 
-
         setNodes(graphNodes);
-
         setEdges(graphEdges);
-
       } catch (err) {
         console.error(
           "Failed to load graph:",
@@ -277,29 +259,161 @@ function App() {
         setError(
           "Unable to connect to the AtmoGraph backend. Make sure FastAPI is running."
         );
-
       } finally {
         setLoading(false);
       }
     };
 
-
     fetchGraph();
-
   }, []);
-
 
   // -----------------------------
   // Node Click / Ripple Effect
   // -----------------------------
 
-  const handleNodeClick = (event, node) => {
+  const handleNodeClick = async (event, node) => {
     setSelectedNode(node);
+    setError("");
+
+    // -----------------------------
+    // Disruption Node
+    // -----------------------------
+
+    if (node.data.type === "Disruption") {
+      try {
+        const response = await fetch(
+          `${API_URL}/ripple-effect/${encodeURIComponent(
+            node.data.label
+          )}`
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Backend returned ${response.status}`
+          );
+        }
+
+        const data = await response.json();
+
+        console.log(
+          "Ripple prediction received:",
+          data
+        );
+
+        setRipplePrediction(data);
+
+        // -----------------------------
+        // Create impact lookup
+        // -----------------------------
+
+        const impactLookup = {};
+
+        data.ripple_effect.forEach((impact) => {
+          impactLookup[impact.company] =
+            impact.impact_level;
+        });
+
+        // -----------------------------
+        // Update Node Risk
+        // -----------------------------
+
+        const updatedNodes = nodes.map(
+          (graphNode) => {
+            let risk = "Low";
+
+            // Disruption gets its backend severity
+            if (
+              graphNode.id === node.id &&
+              data.disruption.severity
+            ) {
+              risk = data.disruption.severity;
+            }
+
+            // Companies get risk from impact level
+            else if (
+              impactLookup[graphNode.data.label] !==
+              undefined
+            ) {
+              risk = getRiskFromImpactLevel(
+                impactLookup[graphNode.data.label]
+              );
+            }
+
+            return {
+              ...graphNode,
+
+              data: {
+                ...graphNode.data,
+                risk,
+                riskClass: getRiskClass(risk),
+              },
+            };
+          }
+        );
+
+        setNodes(updatedNodes);
+
+        // -----------------------------
+        // Find Affected Frontend Nodes
+        // -----------------------------
+
+        const affectedCompanyNames =
+          data.ripple_effect.map(
+            (item) => item.company
+          );
+
+        const affectedNodeIds = updatedNodes
+          .filter((graphNode) =>
+            affectedCompanyNames.includes(
+              graphNode.data.label
+            )
+          )
+          .map((graphNode) => graphNode.id);
+
+        // Also highlight the disruption itself
+        affectedNodeIds.push(node.id);
+
+        setRippleNodes([
+          ...new Set(affectedNodeIds),
+        ]);
+
+        // Update selected node with new risk
+        const updatedSelectedNode =
+          updatedNodes.find(
+            (graphNode) =>
+              graphNode.id === node.id
+          );
+
+        if (updatedSelectedNode) {
+          setSelectedNode(
+            updatedSelectedNode
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Failed to load ripple prediction:",
+          err
+        );
+
+        setRipplePrediction(null);
+        setRippleNodes([node.id]);
+
+        setError(
+          "Unable to load ripple prediction from the backend."
+        );
+      }
+
+      return;
+    }
+
+    // -----------------------------
+    // Normal Graph Traversal
+    // -----------------------------
+
+    setRipplePrediction(null);
 
     const affectedNodes = [node.id];
-
     let currentNodes = [node.id];
-
 
     while (currentNodes.length > 0) {
       const nextNodes = edges
@@ -312,18 +426,12 @@ function App() {
             !affectedNodes.includes(id)
         );
 
-
-      affectedNodes.push(
-        ...nextNodes
-      );
-
+      affectedNodes.push(...nextNodes);
       currentNodes = nextNodes;
     }
 
-
     setRippleNodes(affectedNodes);
   };
-
 
   // -----------------------------
   // Styled Nodes
@@ -334,14 +442,10 @@ function App() {
       search.trim() !== "" &&
       node.data.label
         .toLowerCase()
-        .includes(
-          search.toLowerCase()
-        );
-
+        .includes(search.toLowerCase());
 
     const isRippleNode =
       rippleNodes.includes(node.id);
-
 
     return {
       ...node,
@@ -349,12 +453,10 @@ function App() {
       data: {
         ...node.data,
 
-        riskClass:
-          getRiskClass(
-            node.data.risk
-          ),
+        riskClass: getRiskClass(
+          node.data.risk
+        ),
       },
-
 
       style: {
         ...(matchesSearch
@@ -380,7 +482,6 @@ function App() {
     };
   });
 
-
   // -----------------------------
   // Styled Edges
   // -----------------------------
@@ -394,7 +495,6 @@ function App() {
         rippleNodes.includes(
           edge.target
         );
-
 
       return {
         ...edge,
@@ -413,7 +513,6 @@ function App() {
       };
     });
 
-
   // -----------------------------
   // Risk Counts
   // -----------------------------
@@ -424,13 +523,11 @@ function App() {
         node.data.risk === "Low"
     ).length;
 
-
   const mediumRiskCount =
     nodes.filter(
       (node) =>
         node.data.risk === "Medium"
     ).length;
-
 
   const highRiskCount =
     nodes.filter(
@@ -438,6 +535,28 @@ function App() {
         node.data.risk === "High"
     ).length;
 
+  // -----------------------------
+  // Clear Ripple
+  // -----------------------------
+
+  const clearRipple = () => {
+    setRippleNodes([]);
+    setRipplePrediction(null);
+    setSelectedNode(null);
+
+    // Reset all risks to Low
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => ({
+        ...node,
+
+        data: {
+          ...node.data,
+          risk: "Low",
+          riskClass: "low-risk",
+        },
+      }))
+    );
+  };
 
   // -----------------------------
   // Landing Page
@@ -446,7 +565,6 @@ function App() {
   if (!showGraph) {
     return (
       <div className="landing-page">
-
         <div className="landing-content">
 
           <div className="landing-badge">
@@ -454,17 +572,14 @@ function App() {
             INTELLIGENCE
           </div>
 
-
           <h1>
             AtmoGraph
           </h1>
-
 
           <h2>
             Supply Chain Ripple Effect
             Predictor
           </h2>
-
 
           <p>
             Visualize supply chain networks,
@@ -473,11 +588,9 @@ function App() {
             connected entities.
           </p>
 
-
           <div className="landing-features">
 
             <div className="feature-card">
-
               <span>🌐</span>
 
               <h3>
@@ -488,12 +601,9 @@ function App() {
                 Explore interconnected
                 supply chain entities.
               </p>
-
             </div>
 
-
             <div className="feature-card">
-
               <span>⚠️</span>
 
               <h3>
@@ -504,12 +614,9 @@ function App() {
                 Monitor and visualize
                 supply chain risks.
               </p>
-
             </div>
 
-
             <div className="feature-card">
-
               <span>📈</span>
 
               <h3>
@@ -520,11 +627,9 @@ function App() {
                 Understand potential
                 downstream impacts.
               </p>
-
             </div>
 
           </div>
-
 
           <button
             className="show-graph-btn"
@@ -537,15 +642,12 @@ function App() {
             <span>
               →
             </span>
-
           </button>
 
         </div>
-
       </div>
     );
   }
-
 
   // -----------------------------
   // Graph Page
@@ -567,9 +669,7 @@ function App() {
 
       </header>
 
-
       <main className="graph-container">
-
 
         {/* Search */}
 
@@ -588,7 +688,6 @@ function App() {
 
         </div>
 
-
         {/* Risk Legend */}
 
         <div className="risk-legend">
@@ -597,24 +696,20 @@ function App() {
             Risk Level
           </h3>
 
-
           <div>
             <span className="legend-dot low"></span>
             Low
           </div>
-
 
           <div>
             <span className="legend-dot medium"></span>
             Medium
           </div>
 
-
           <div>
             <span className="legend-dot high"></span>
             High
           </div>
-
 
           <div>
             <span className="legend-dot ripple"></span>
@@ -623,68 +718,69 @@ function App() {
 
         </div>
 
-
-        {/* Prediction Timeline */}
+        {/* Prediction Panel */}
 
         <div className="prediction-panel">
 
           <h3>
-            Prediction Timeline
+            Current Prediction
           </h3>
 
+          {ripplePrediction ? (
+            <>
+              <div className="prediction-item">
 
-          <div className="prediction-item">
+                <strong>
+                  {ripplePrediction.disruption.type}
+                </strong>
 
-            <strong>
-              30 Days
-            </strong>
+                <span
+                  className={
+                    ripplePrediction.disruption
+                      .severity === "High"
+                      ? "prediction-high"
+                      : "prediction-medium"
+                  }
+                >
+                  {ripplePrediction.disruption.severity} Risk
+                </span>
 
-            <span className="prediction-medium">
-              Medium Risk
-            </span>
+                <p>
+                  {ripplePrediction.disruption.description}
+                </p>
 
-            <p>
-              Estimated Delay: 12 Days
-            </p>
+              </div>
 
-          </div>
+              <div className="prediction-item">
 
+                <strong>
+                  Affected Entities
+                </strong>
 
-          <div className="prediction-item">
+                <p>
+                  {ripplePrediction.ripple_effect.length}
+                  {" "}
+                  companies impacted
+                </p>
 
-            <strong>
-              60 Days
-            </strong>
+              </div>
+            </>
+          ) : (
+            <div className="prediction-item">
 
-            <span className="prediction-high">
-              High Risk
-            </span>
+              <strong>
+                No disruption selected
+              </strong>
 
-            <p>
-              Estimated Delay: 25 Days
-            </p>
+              <p>
+                Click a disruption node to
+                run a ripple-effect prediction.
+              </p>
 
-          </div>
-
-
-          <div className="prediction-item">
-
-            <strong>
-              90 Days
-            </strong>
-
-            <span className="prediction-high">
-              High Risk
-            </span>
-
-            <p>
-              Estimated Delay: 40 Days
-            </p>
-
-          </div>
+            </div>
+          )}
 
         </div>
-
 
         {/* Risk Summary */}
 
@@ -694,18 +790,15 @@ function App() {
             Risk Overview
           </h3>
 
-
           <div className="risk-counts">
 
             <span className="risk-low">
               Low: {lowRiskCount}
             </span>
 
-
             <span className="risk-medium">
               Medium: {mediumRiskCount}
             </span>
-
 
             <span className="risk-high">
               High: {highRiskCount}
@@ -714,7 +807,6 @@ function App() {
           </div>
 
         </div>
-
 
         {/* Loading */}
 
@@ -735,7 +827,6 @@ function App() {
 
         )}
 
-
         {/* Error */}
 
         {error && (
@@ -754,49 +845,29 @@ function App() {
 
         )}
 
-
         {/* React Flow */}
 
         <ReactFlow
-
           nodes={nodesWithRisk}
-
           edges={edgesWithRipple}
-
           nodeTypes={nodeTypes}
-
           onNodeClick={handleNodeClick}
-
           fitView
-
           fitViewOptions={{
             padding: 0.15,
           }}
-
           minZoom={0.5}
-
           maxZoom={1.5}
-
           zoomOnScroll={false}
-
           zoomOnPinch={false}
-
           zoomOnDoubleClick={false}
-
           panOnDrag={true}
-
           nodesDraggable={false}
-
           nodesConnectable={false}
-
         >
-
           <Controls />
-
           <Background />
-
         </ReactFlow>
-
 
         {/* Ripple Information */}
 
@@ -808,18 +879,80 @@ function App() {
               Ripple Effect
             </h3>
 
-            <p>
-              {rippleNodes.length}
-              {" "}
-              connected nodes affected
-            </p>
+            {ripplePrediction ? (
 
+              <>
+
+                <p>
+                  <strong>
+                    Disruption:
+                  </strong>{" "}
+                  {ripplePrediction.disruption.type}
+                </p>
+
+                <p>
+                  <strong>
+                    Severity:
+                  </strong>{" "}
+                  {ripplePrediction.disruption.severity}
+                </p>
+
+                <p>
+                  <strong>
+                    Description:
+                  </strong>{" "}
+                  {ripplePrediction.disruption.description}
+                </p>
+
+                <h4>
+                  Impacted Companies
+                </h4>
+
+                {ripplePrediction.ripple_effect.map(
+                  (impact) => (
+                    <div
+                      key={`${impact.company}-${impact.impact_level}`}
+                      className="ripple-impact"
+                      style={{
+                        marginBottom: "8px",
+                        padding: "8px",
+                        borderRadius: "8px",
+                        background:
+                          "rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <strong>
+                        {impact.company}
+                      </strong>
+
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          marginTop: "3px",
+                        }}
+                      >
+                        Impact Level{" "}
+                        {impact.impact_level}
+                      </div>
+
+                    </div>
+                  )
+                )}
+
+              </>
+
+            ) : (
+
+              <p>
+                {rippleNodes.length}
+                {" "}
+                connected nodes affected
+              </p>
+
+            )}
 
             <button
-              onClick={() => {
-                setRippleNodes([]);
-                setSelectedNode(null);
-              }}
+              onClick={clearRipple}
             >
               Clear Ripple
             </button>
@@ -827,7 +960,6 @@ function App() {
           </div>
 
         )}
-
 
         {/* Selected Node */}
 
@@ -839,14 +971,12 @@ function App() {
               {selectedNode.data.label}
             </h2>
 
-
             <p>
               <strong>
                 ID:
               </strong>{" "}
               {selectedNode.id}
             </p>
-
 
             <p>
               <strong>
@@ -855,14 +985,12 @@ function App() {
               {selectedNode.data.type}
             </p>
 
-
             <p>
               <strong>
                 Location:
               </strong>{" "}
               {selectedNode.data.location}
             </p>
-
 
             <p>
               <strong>
@@ -871,14 +999,12 @@ function App() {
               {selectedNode.data.status}
             </p>
 
-
             <p>
               <strong>
                 Risk:
               </strong>{" "}
               {selectedNode.data.risk}
             </p>
-
 
             <button
               onClick={() => {
