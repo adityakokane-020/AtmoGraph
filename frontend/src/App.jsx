@@ -1,225 +1,447 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
 import {
   ReactFlow,
   Controls,
-  MiniMap,
   Background,
+  Handle,
+  Position,
 } from "@xyflow/react";
 
 import "@xyflow/react/dist/style.css";
 import "./App.css";
 
-const nodes = [
-  {
-    id: "supplier",
-    position: { x: 50, y: 250 },
-    data: {
-      label: "Main Supplier",
-      type: "Supplier",
-      location: "India",
-      status: "Normal",
-      risk: "Low",
-    },
-  },
-  {
-    id: "factory-a",
-    position: { x: 300, y: 100 },
-    data: {
-      label: "Factory A",
-      type: "Factory",
-      location: "India",
-      status: "Normal",
-      risk: "Low",
-    },
-  },
-  {
-    id: "factory-b",
-    position: { x: 300, y: 250 },
-    data: {
-      label: "Factory B",
-      type: "Factory",
-      location: "India",
-      status: "Normal",
-      risk: "Medium",
-    },
-  },
-  {
-    id: "factory-c",
-    position: { x: 300, y: 400 },
-    data: {
-      label: "Factory C",
-      type: "Factory",
-      location: "India",
-      status: "Normal",
-      risk: "Low",
-    },
-  },
-  {
-    id: "warehouse-a",
-    position: { x: 550, y: 100 },
-    data: {
-      label: "Warehouse A",
-      type: "Warehouse",
-      location: "India",
-      status: "Normal",
-      risk: "Low",
-    },
-  },
-  {
-    id: "warehouse-b",
-    position: { x: 550, y: 250 },
-    data: {
-      label: "Warehouse B",
-      type: "Warehouse",
-      location: "India",
-      status: "Normal",
-      risk: "Medium",
-    },
-  },
-  {
-    id: "warehouse-c",
-    position: { x: 550, y: 400 },
-    data: {
-      label: "Warehouse C",
-      type: "Warehouse",
-      location: "India",
-      status: "Normal",
-      risk: "Low",
-    },
-  },
-  {
-    id: "market-a",
-    position: { x: 800, y: 100 },
-    data: {
-      label: "Market A",
-      type: "Market",
-      location: "India",
-      status: "Normal",
-      risk: "Low",
-    },
-  },
-  {
-    id: "market-b",
-    position: { x: 800, y: 250 },
-    data: {
-      label: "Market B",
-      type: "Market",
-      location: "India",
-      status: "Normal",
-      risk: "Medium",
-    },
-  },
-  {
-    id: "market-c",
-    position: { x: 800, y: 400 },
-    data: {
-      label: "Market C",
-      type: "Market",
-      location: "India",
-      status: "Normal",
-      risk: "Low",
-    },
-  },
-];
+const API_URL = "http://127.0.0.1:8000";
 
-const edges = [
-  { id: "supplier-factory-a", source: "supplier", target: "factory-a" },
-  { id: "supplier-factory-b", source: "supplier", target: "factory-b" },
-  { id: "supplier-factory-c", source: "supplier", target: "factory-c" },
-  { id: "factory-a-warehouse-a", source: "factory-a", target: "warehouse-a" },
-  { id: "factory-b-warehouse-b", source: "factory-b", target: "warehouse-b" },
-  { id: "factory-c-warehouse-c", source: "factory-c", target: "warehouse-c" },
-  { id: "warehouse-a-market-a", source: "warehouse-a", target: "market-a" },
-  { id: "warehouse-b-market-b", source: "warehouse-b", target: "market-b" },
-  { id: "warehouse-c-market-c", source: "warehouse-c", target: "market-c" },
-];
+
+// -----------------------------
+// Custom Node
+// -----------------------------
+
+function SupplyChainNode({ data }) {
+  return (
+    <div
+      className={`supply-chain-node ${data.riskClass}`}
+      style={{
+        minWidth: "160px",
+        padding: "14px 18px",
+        borderRadius: "12px",
+        background: "#ffffff",
+        color: "#111827",
+        border: "2px solid #64748b",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+        textAlign: "center",
+        fontWeight: "600",
+      }}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{
+          background: "#64748b",
+          width: "8px",
+          height: "8px",
+        }}
+      />
+
+      <div
+        style={{
+          fontSize: "14px",
+          fontWeight: "700",
+          marginBottom: "5px",
+        }}
+      >
+        {data.label}
+      </div>
+
+      <div
+        style={{
+          fontSize: "11px",
+          color: "#64748b",
+        }}
+      >
+        {data.type}
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{
+          background: "#64748b",
+          width: "8px",
+          height: "8px",
+        }}
+      />
+    </div>
+  );
+}
+
+
+// -----------------------------
+// Node Types
+// -----------------------------
+
+const nodeTypes = {
+  supplyChain: SupplyChainNode,
+};
+
+
+// -----------------------------
+// Risk Helper
+// -----------------------------
 
 const getRiskClass = (risk) => {
-  if (risk === "High") return "high-risk";
-  if (risk === "Medium") return "medium-risk";
+  if (risk === "High") {
+    return "high-risk";
+  }
+
+  if (risk === "Medium") {
+    return "medium-risk";
+  }
+
   return "low-risk";
 };
 
+
+// -----------------------------
+// Main App
+// -----------------------------
+
 function App() {
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+
   const [selectedNode, setSelectedNode] = useState(null);
   const [search, setSearch] = useState("");
   const [rippleNodes, setRippleNodes] = useState([]);
+
   const [showGraph, setShowGraph] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+
+  // -----------------------------
+  // Load Graph From Backend
+  // -----------------------------
+
+  useEffect(() => {
+    const fetchGraph = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await fetch(`${API_URL}/graph`);
+
+        if (!response.ok) {
+          throw new Error(
+            `Backend returned ${response.status}`
+          );
+        }
+
+        const data = await response.json();
+
+        console.log("Graph data received:", data);
+
+
+        // -----------------------------
+        // Create Node Positions
+        // -----------------------------
+
+        const graphNodes = data.nodes.map((node) => {
+          let position = {
+            x: 100,
+            y: 300,
+          };
+
+
+          // Supplier
+          if (
+            node.label === "Steel Supplier Ltd"
+          ) {
+            position = {
+              x: 80,
+              y: 300,
+            };
+          }
+
+
+          // Tata Motors
+          else if (
+            node.label === "Tata Motors"
+          ) {
+            position = {
+              x: 360,
+              y: 300,
+            };
+          }
+
+
+          // Mumbai Port
+          else if (
+            node.label === "Mumbai Port"
+          ) {
+            position = {
+              x: 640,
+              y: 300,
+            };
+          }
+
+
+          // Port Closure
+          else if (
+            node.label === "Port Closure"
+          ) {
+            position = {
+              x: 920,
+              y: 300,
+            };
+          }
+
+
+          return {
+            id: node.id,
+
+            type: "supplyChain",
+
+            position,
+
+            data: {
+              label: node.label || "Unnamed Node",
+
+              type: node.type || "Unknown",
+
+              location: "Not available",
+
+              status: "Normal",
+
+              risk: "Low",
+
+              riskClass: "low-risk",
+            },
+          };
+        });
+
+
+        // -----------------------------
+        // Create Relationships
+        // -----------------------------
+
+        const graphEdges = data.relationships.map(
+          (relationship, index) => ({
+            id: `edge-${index}`,
+
+            source: relationship.source,
+
+            target: relationship.target,
+
+            label: relationship.type,
+
+            type: "smoothstep",
+
+            animated: false,
+
+            style: {
+              stroke: "#64748b",
+              strokeWidth: 2,
+            },
+
+            labelStyle: {
+              fill: "#ffffff",
+              fontSize: 11,
+              fontWeight: 700,
+            },
+
+            labelBgStyle: {
+              fill: "#111827",
+              fillOpacity: 0.85,
+            },
+
+            labelBgPadding: [6, 4],
+
+            labelBgBorderRadius: 4,
+          })
+        );
+
+
+        setNodes(graphNodes);
+
+        setEdges(graphEdges);
+
+      } catch (err) {
+        console.error(
+          "Failed to load graph:",
+          err
+        );
+
+        setError(
+          "Unable to connect to the AtmoGraph backend. Make sure FastAPI is running."
+        );
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
+
+    fetchGraph();
+
+  }, []);
+
+
+  // -----------------------------
+  // Node Click / Ripple Effect
+  // -----------------------------
+
   const handleNodeClick = (event, node) => {
     setSelectedNode(node);
 
-    // Find downstream nodes
     const affectedNodes = [node.id];
+
     let currentNodes = [node.id];
+
 
     while (currentNodes.length > 0) {
       const nextNodes = edges
-        .filter((edge) => currentNodes.includes(edge.source))
+        .filter((edge) =>
+          currentNodes.includes(edge.source)
+        )
         .map((edge) => edge.target)
-        .filter((id) => !affectedNodes.includes(id));
+        .filter(
+          (id) =>
+            !affectedNodes.includes(id)
+        );
 
-      affectedNodes.push(...nextNodes);
+
+      affectedNodes.push(
+        ...nextNodes
+      );
+
       currentNodes = nextNodes;
     }
+
 
     setRippleNodes(affectedNodes);
   };
 
+
+  // -----------------------------
+  // Styled Nodes
+  // -----------------------------
+
   const nodesWithRisk = nodes.map((node) => {
     const matchesSearch =
       search.trim() !== "" &&
-      node.data.label.toLowerCase().includes(search.toLowerCase());
+      node.data.label
+        .toLowerCase()
+        .includes(
+          search.toLowerCase()
+        );
 
-    const isRippleNode = rippleNodes.includes(node.id);
+
+    const isRippleNode =
+      rippleNodes.includes(node.id);
+
 
     return {
       ...node,
-      className: getRiskClass(node.data.risk),
+
+      data: {
+        ...node.data,
+
+        riskClass:
+          getRiskClass(
+            node.data.risk
+          ),
+      },
+
+
       style: {
         ...(matchesSearch
           ? {
-            boxShadow: "0 0 20px 6px #3b82f6",
-            border: "3px solid #3b82f6",
-          }
+              boxShadow:
+                "0 0 20px 6px #3b82f6",
+
+              border:
+                "3px solid #3b82f6",
+            }
           : {}),
+
         ...(isRippleNode
           ? {
-            boxShadow: "0 0 18px 5px #f97316",
-            border: "3px solid #f97316",
-          }
+              boxShadow:
+                "0 0 20px 6px #f97316",
+
+              border:
+                "3px solid #f97316",
+            }
           : {}),
       },
     };
   });
 
-  const edgesWithRipple = edges.map((edge) => {
-    const isRippleEdge =
-      rippleNodes.includes(edge.source) &&
-      rippleNodes.includes(edge.target);
 
-    return {
-      ...edge,
-      animated: isRippleEdge,
-      style: isRippleEdge
-        ? {
-          stroke: "#f97316",
-          strokeWidth: 3,
-        }
-        : {},
-    };
-  });
+  // -----------------------------
+  // Styled Edges
+  // -----------------------------
 
-  const lowRiskCount = nodes.filter(
-    (node) => node.data.risk === "Low"
-  ).length;
+  const edgesWithRipple =
+    edges.map((edge) => {
+      const isRippleEdge =
+        rippleNodes.includes(
+          edge.source
+        ) &&
+        rippleNodes.includes(
+          edge.target
+        );
 
-  const mediumRiskCount = nodes.filter(
-    (node) => node.data.risk === "Medium"
-  ).length;
 
-  const highRiskCount = nodes.filter(
-    (node) => node.data.risk === "High"
-  ).length;
+      return {
+        ...edge,
+
+        animated: isRippleEdge,
+
+        style: isRippleEdge
+          ? {
+              stroke: "#f97316",
+              strokeWidth: 4,
+            }
+          : {
+              stroke: "#64748b",
+              strokeWidth: 2,
+            },
+      };
+    });
+
+
+  // -----------------------------
+  // Risk Counts
+  // -----------------------------
+
+  const lowRiskCount =
+    nodes.filter(
+      (node) =>
+        node.data.risk === "Low"
+    ).length;
+
+
+  const mediumRiskCount =
+    nodes.filter(
+      (node) =>
+        node.data.risk === "Medium"
+    ).length;
+
+
+  const highRiskCount =
+    nodes.filter(
+      (node) =>
+        node.data.risk === "High"
+    ).length;
+
+
+  // -----------------------------
+  // Landing Page
+  // -----------------------------
 
   if (!showGraph) {
     return (
@@ -228,49 +450,94 @@ function App() {
         <div className="landing-content">
 
           <div className="landing-badge">
-            AI-POWERED SUPPLY CHAIN INTELLIGENCE
+            AI-POWERED SUPPLY CHAIN
+            INTELLIGENCE
           </div>
 
-          <h1>AtmoGraph</h1>
+
+          <h1>
+            AtmoGraph
+          </h1>
+
 
           <h2>
-            Supply Chain Ripple Effect Predictor
+            Supply Chain Ripple Effect
+            Predictor
           </h2>
 
+
           <p>
-            Visualize supply chain networks, identify risk,
-            and understand how disruptions propagate across
+            Visualize supply chain networks,
+            identify risk, and understand how
+            disruptions propagate across
             connected entities.
           </p>
+
 
           <div className="landing-features">
 
             <div className="feature-card">
+
               <span>🌐</span>
-              <h3>Network Graph</h3>
-              <p>Explore interconnected supply chain entities.</p>
+
+              <h3>
+                Network Graph
+              </h3>
+
+              <p>
+                Explore interconnected
+                supply chain entities.
+              </p>
+
             </div>
 
+
             <div className="feature-card">
+
               <span>⚠️</span>
-              <h3>Risk Analysis</h3>
-              <p>Monitor and visualize supply chain risks.</p>
+
+              <h3>
+                Risk Analysis
+              </h3>
+
+              <p>
+                Monitor and visualize
+                supply chain risks.
+              </p>
+
             </div>
 
+
             <div className="feature-card">
+
               <span>📈</span>
-              <h3>Prediction</h3>
-              <p>Understand potential downstream impacts.</p>
+
+              <h3>
+                Prediction
+              </h3>
+
+              <p>
+                Understand potential
+                downstream impacts.
+              </p>
+
             </div>
 
           </div>
 
+
           <button
             className="show-graph-btn"
-            onClick={() => setShowGraph(true)}
+            onClick={() =>
+              setShowGraph(true)
+            }
           >
             Show Supply Chain Graph
-            <span>→</span>
+
+            <span>
+              →
+            </span>
+
           </button>
 
         </div>
@@ -278,111 +545,276 @@ function App() {
       </div>
     );
   }
+
+
+  // -----------------------------
+  // Graph Page
+  // -----------------------------
+
   return (
     <div className="app">
+
       <header className="header">
-        <h1>AtmoGraph</h1>
-        <p>Supply Chain Ripple Effect Predictor</p>
+
+        <h1>
+          AtmoGraph
+        </h1>
+
+        <p>
+          Supply Chain Ripple Effect
+          Predictor
+        </p>
+
       </header>
 
+
       <main className="graph-container">
-        <div className="prediction-panel">
-          <h3>Prediction Timeline</h3>
 
-          <div className="prediction-item">
-            <strong>30 Days</strong>
-            <span className="prediction-medium">Medium Risk</span>
-            <p>Estimated Delay: 12 Days</p>
-          </div>
 
-          <div className="prediction-item">
-            <strong>60 Days</strong>
-            <span className="prediction-high">High Risk</span>
-            <p>Estimated Delay: 25 Days</p>
-          </div>
+        {/* Search */}
 
-          <div className="prediction-item">
-            <strong>90 Days</strong>
-            <span className="prediction-high">High Risk</span>
-            <p>Estimated Delay: 40 Days</p>
-          </div>
+        <div className="search-box">
+
+          <input
+            type="text"
+            placeholder="Search node..."
+            value={search}
+            onChange={(event) =>
+              setSearch(
+                event.target.value
+              )
+            }
+          />
+
         </div>
-        <div className="risk-summary">
-          <h3>Risk Overview</h3>
 
-          <div className="risk-counts">
-            <span className="risk-low">
-              Low: {lowRiskCount}
-            </span>
 
-            <span className="risk-medium">
-              Medium: {mediumRiskCount}
-            </span>
+        {/* Risk Legend */}
 
-            <span className="risk-high">
-              High: {highRiskCount}
-            </span>
-          </div>
-        </div>
         <div className="risk-legend">
-          <h3>Risk Level</h3>
+
+          <h3>
+            Risk Level
+          </h3>
+
 
           <div>
             <span className="legend-dot low"></span>
             Low
           </div>
 
+
           <div>
             <span className="legend-dot medium"></span>
             Medium
           </div>
+
 
           <div>
             <span className="legend-dot high"></span>
             High
           </div>
 
+
           <div>
             <span className="legend-dot ripple"></span>
             Ripple Effect
           </div>
+
         </div>
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search node..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+
+
+        {/* Prediction Timeline */}
+
+        <div className="prediction-panel">
+
+          <h3>
+            Prediction Timeline
+          </h3>
+
+
+          <div className="prediction-item">
+
+            <strong>
+              30 Days
+            </strong>
+
+            <span className="prediction-medium">
+              Medium Risk
+            </span>
+
+            <p>
+              Estimated Delay: 12 Days
+            </p>
+
+          </div>
+
+
+          <div className="prediction-item">
+
+            <strong>
+              60 Days
+            </strong>
+
+            <span className="prediction-high">
+              High Risk
+            </span>
+
+            <p>
+              Estimated Delay: 25 Days
+            </p>
+
+          </div>
+
+
+          <div className="prediction-item">
+
+            <strong>
+              90 Days
+            </strong>
+
+            <span className="prediction-high">
+              High Risk
+            </span>
+
+            <p>
+              Estimated Delay: 40 Days
+            </p>
+
+          </div>
+
         </div>
+
+
+        {/* Risk Summary */}
+
+        <div className="risk-summary">
+
+          <h3>
+            Risk Overview
+          </h3>
+
+
+          <div className="risk-counts">
+
+            <span className="risk-low">
+              Low: {lowRiskCount}
+            </span>
+
+
+            <span className="risk-medium">
+              Medium: {mediumRiskCount}
+            </span>
+
+
+            <span className="risk-high">
+              High: {highRiskCount}
+            </span>
+
+          </div>
+
+        </div>
+
+
+        {/* Loading */}
+
+        {loading && (
+
+          <div className="ripple-info">
+
+            <h3>
+              Loading Graph...
+            </h3>
+
+            <p>
+              Connecting to AtmoGraph
+              backend.
+            </p>
+
+          </div>
+
+        )}
+
+
+        {/* Error */}
+
+        {error && (
+
+          <div className="ripple-info">
+
+            <h3>
+              Backend Connection Error
+            </h3>
+
+            <p>
+              {error}
+            </p>
+
+          </div>
+
+        )}
+
+
+        {/* React Flow */}
 
         <ReactFlow
+
           nodes={nodesWithRisk}
+
           edges={edgesWithRipple}
+
+          nodeTypes={nodeTypes}
+
           onNodeClick={handleNodeClick}
+
           fitView
+
           fitViewOptions={{
-            padding: 0.08,
-            minZoom: 0.7,
-            maxZoom: 1.2,
+            padding: 0.15,
           }}
+
+          minZoom={0.5}
+
+          maxZoom={1.5}
+
           zoomOnScroll={false}
+
           zoomOnPinch={false}
+
           zoomOnDoubleClick={false}
-          panOnDrag={false}
+
+          panOnDrag={true}
+
           nodesDraggable={false}
+
           nodesConnectable={false}
+
         >
+
           <Controls />
+
           <Background />
+
         </ReactFlow>
 
+
+        {/* Ripple Information */}
+
         {rippleNodes.length > 0 && (
+
           <div className="ripple-info">
-            <h3>Ripple Effect</h3>
+
+            <h3>
+              Ripple Effect
+            </h3>
+
             <p>
-              {rippleNodes.length} connected nodes affected
+              {rippleNodes.length}
+              {" "}
+              connected nodes affected
             </p>
+
+
             <button
               onClick={() => {
                 setRippleNodes([]);
@@ -391,35 +823,62 @@ function App() {
             >
               Clear Ripple
             </button>
+
           </div>
+
         )}
 
+
+        {/* Selected Node */}
+
         {selectedNode && (
+
           <div className="node-details">
-            <h2>{selectedNode.data.label}</h2>
+
+            <h2>
+              {selectedNode.data.label}
+            </h2>
+
 
             <p>
-              <strong>ID:</strong> {selectedNode.id}
+              <strong>
+                ID:
+              </strong>{" "}
+              {selectedNode.id}
             </p>
 
-            <p>
-              <strong>Type:</strong> {selectedNode.data.type}
-            </p>
 
             <p>
-              <strong>Location:</strong>{" "}
+              <strong>
+                Type:
+              </strong>{" "}
+              {selectedNode.data.type}
+            </p>
+
+
+            <p>
+              <strong>
+                Location:
+              </strong>{" "}
               {selectedNode.data.location}
             </p>
 
+
             <p>
-              <strong>Status:</strong>{" "}
+              <strong>
+                Status:
+              </strong>{" "}
               {selectedNode.data.status}
             </p>
 
+
             <p>
-              <strong>Risk:</strong>{" "}
+              <strong>
+                Risk:
+              </strong>{" "}
               {selectedNode.data.risk}
             </p>
+
 
             <button
               onClick={() => {
@@ -429,9 +888,13 @@ function App() {
             >
               Close
             </button>
+
           </div>
+
         )}
+
       </main>
+
     </div>
   );
 }
