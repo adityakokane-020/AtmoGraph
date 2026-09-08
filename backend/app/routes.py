@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from .database import driver
@@ -291,9 +291,10 @@ def get_ripple_effect(disruption_type: str):
         record = result.single()
 
     if not record:
-        return {
-            "message": "Disruption not found"
-        }
+        raise HTTPException(
+            status_code=404,
+            detail="Disruption not found"
+        )
 
     ripple_effect = [
         {
