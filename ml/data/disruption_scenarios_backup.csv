@@ -1,0 +1,11 @@
+scenario_id,disrupted_node,disruption_type,severity,target_delay
+SC001,P001,Port Strike,High,30
+SC002,P002,Port Strike,High,25
+SC003,P003,Port Closure,High,45
+SC004,P004,Port Strike,Medium,20
+SC005,P005,Port Congestion,Medium,15
+SC006,P001,Port Strike,Medium,20
+SC007,P002,Port Congestion,Low,10
+SC008,P003,Port Congestion,Medium,30
+SC009,P004,Port Closure,High,40
+SC010,P005,Port Strike,High,35
