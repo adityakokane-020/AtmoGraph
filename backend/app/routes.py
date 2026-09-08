@@ -7,6 +7,10 @@ from .database import driver
 router = APIRouter()
 
 
+# -----------------------------
+# Company
+# -----------------------------
+
 class Company(BaseModel):
     name: str
     industry: str
@@ -38,6 +42,10 @@ def create_company(company: Company):
         "company": dict(record["c"])
     }
 
+
+# -----------------------------
+# Supply Relationship
+# -----------------------------
 
 class SupplyRelationship(BaseModel):
     supplier: str
@@ -75,6 +83,10 @@ def create_supply_relationship(data: SupplyRelationship):
     }
 
 
+# -----------------------------
+# Port
+# -----------------------------
+
 class Port(BaseModel):
     name: str
     country: str
@@ -103,6 +115,10 @@ def create_port(port: Port):
         "port": dict(record["p"])
     }
 
+
+# -----------------------------
+# Company Uses Port
+# -----------------------------
 
 class PortRelationship(BaseModel):
     company: str
@@ -140,6 +156,10 @@ def create_port_relationship(data: PortRelationship):
     }
 
 
+# -----------------------------
+# Disruption
+# -----------------------------
+
 class Disruption(BaseModel):
     type: str
     description: str
@@ -174,13 +194,19 @@ def create_disruption(disruption: Disruption):
     }
 
 
+# -----------------------------
+# Port Affected By Disruption
+# -----------------------------
+
 class DisruptionRelationship(BaseModel):
     port: str
     disruption_type: str
 
 
 @router.post("/relationships/affected-by")
-def create_disruption_relationship(data: DisruptionRelationship):
+def create_disruption_relationship(
+    data: DisruptionRelationship
+):
 
     query = """
     MATCH (p:Port {name: $port})
@@ -210,6 +236,10 @@ def create_disruption_relationship(data: DisruptionRelationship):
     }
 
 
+# -----------------------------
+# Graph
+# -----------------------------
+
 @router.get("/graph")
 def get_graph():
 
@@ -236,7 +266,8 @@ def get_graph():
 
                 nodes[node_id] = {
                     "id": node_id,
-                    "label": source.get("name") or source.get("type"),
+                    "label": source.get("name")
+                    or source.get("type"),
                     "type": list(source.labels)[0]
                 }
 
@@ -245,7 +276,8 @@ def get_graph():
 
                 nodes[node_id] = {
                     "id": node_id,
-                    "label": target.get("name") or target.get("type"),
+                    "label": target.get("name")
+                    or target.get("type"),
                     "type": list(target.labels)[0]
                 }
 
@@ -261,6 +293,47 @@ def get_graph():
         "relationships": relationships
     }
 
+
+# -----------------------------
+# Risk Calculation
+# -----------------------------
+
+def calculate_risk(severity, impact_level):
+
+    severity_scores = {
+        "Low": 1,
+        "Medium": 2,
+        "High": 3
+    }
+
+    severity_score = severity_scores.get(
+        severity,
+        1
+    )
+
+    risk_score = (
+        severity_score * 2
+        + impact_level
+    )
+
+    if risk_score >= 7:
+        risk = "High"
+
+    elif risk_score >= 5:
+        risk = "Medium"
+
+    else:
+        risk = "Low"
+
+    return {
+        "risk": risk,
+        "risk_score": risk_score
+    }
+
+
+# -----------------------------
+# Ripple Effect Prediction
+# -----------------------------
 
 @router.get("/ripple-effect/{disruption_type}")
 def get_ripple_effect(disruption_type: str):
@@ -296,23 +369,60 @@ def get_ripple_effect(disruption_type: str):
             detail="Disruption not found"
         )
 
-    ripple_effect = [
-        {
-            "company": record["affected_company"],
-            "port": record["port"],
-            "impact_level": 1
-        }
-    ]
+    disruption = dict(record["d"])
+
+    ripple_effect = []
+
+    # -----------------------------
+    # Directly affected company
+    # -----------------------------
+
+    direct_risk = calculate_risk(
+        disruption.get("severity", "Low"),
+        1
+    )
+
+    ripple_effect.append({
+        "company": record["affected_company"],
+        "port": record["port"],
+        "impact_level": 1,
+        "risk": direct_risk["risk"],
+        "risk_score": direct_risk["risk_score"]
+    })
+
+    # -----------------------------
+    # Supplier ripple effects
+    # -----------------------------
 
     for supplier in record["suppliers"]:
-        if supplier["supplier"] is not None:
-            ripple_effect.append({
-                "company": supplier["supplier"],
-                "port": record["port"],
-                "impact_level": supplier["supplier_level"]
-            })
+
+        supplier_name = supplier.get("supplier")
+        supplier_level = supplier.get(
+            "supplier_level"
+        )
+
+        if (
+            supplier_name is None
+            or supplier_level is None
+        ):
+            continue
+
+        impact_level = int(supplier_level)
+
+        supplier_risk = calculate_risk(
+            disruption.get("severity", "Low"),
+            impact_level
+        )
+
+        ripple_effect.append({
+            "company": supplier_name,
+            "port": record["port"],
+            "impact_level": impact_level,
+            "risk": supplier_risk["risk"],
+            "risk_score": supplier_risk["risk_score"]
+        })
 
     return {
-        "disruption": dict(record["d"]),
+        "disruption": disruption,
         "ripple_effect": ripple_effect
     }
