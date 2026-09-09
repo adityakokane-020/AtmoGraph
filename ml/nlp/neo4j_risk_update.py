@@ -1,44 +1,50 @@
+import os
 from neo4j import GraphDatabase
 
 
-# --------------------------------------------------
-# Neo4j Configuration
-# --------------------------------------------------
+URI = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7687")
+USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
+PASSWORD = os.getenv("NEO4J_PASSWORD")
+DATABASE = os.getenv("NEO4J_DATABASE", "atmograph")
 
-URI = "bolt://127.0.0.1:7687"
-USERNAME = "neo4j"
-PASSWORD = "12345678"
-DATABASE = "atmograph"
-
-
-# --------------------------------------------------
-# Update Risk + Disruption
-# --------------------------------------------------
-
-def update_node_risk(node_id, severity):
+def update_node_risk(
+    node_id,
+    severity,
+    disruption_type=None
+):
 
     driver = GraphDatabase.driver(
         URI,
         auth=(USERNAME, PASSWORD)
     )
 
+    query = """
+    MATCH (n {id: $node_id})
+
+    SET
+        n.risk = $severity,
+        n.disruption = 1,
+        n.disruption_type = $disruption_type
+
+    RETURN
+        n.id AS id,
+        n.name AS name,
+        n.risk AS risk,
+        n.disruption AS disruption,
+        n.disruption_type AS disruption_type
+    """
+
     try:
 
-        with driver.session(database=DATABASE) as session:
-
-            # ------------------------------------------
-            # Check Node
-            # ------------------------------------------
+        with driver.session(
+            database=DATABASE
+        ) as session:
 
             result = session.run(
-                """
-                MATCH (n {id: $node_id})
-                RETURN
-                    n.id AS ID,
-                    n.name AS Name,
-                    n.risk AS Risk
-                """,
-                node_id=node_id
+                query,
+                node_id=node_id,
+                severity=severity,
+                disruption_type=disruption_type
             )
 
             record = result.single()
@@ -46,74 +52,43 @@ def update_node_risk(node_id, severity):
             if record:
 
                 print("===== Node Found =====")
-                print("Node ID:", record["ID"])
-                print("Node Name:", record["Name"])
-                print("Current Risk:", record["Risk"])
 
-                # --------------------------------------
-                # Update Risk + Disruption
-                # --------------------------------------
-
-                update_result = session.run(
-                    """
-                    MATCH (n {id: $node_id})
-                    SET
-                        n.risk = $severity,
-                        n.disruption = 1
-                    RETURN
-                        n.id AS ID,
-                        n.name AS Name,
-                        n.risk AS Risk,
-                        n.disruption AS Disruption
-                    """,
-                    node_id=node_id,
-                    severity=severity
+                print(
+                    f"Node ID: {record['id']}"
                 )
 
-                updated = update_result.single()
+                print(
+                    f"Node Name: {record['name']}"
+                )
 
-                print("\n===== Neo4j Risk Update =====")
-                print("Node ID:", updated["ID"])
-                print("Node Name:", updated["Name"])
-                print("Updated Risk:", updated["Risk"])
-                print("Disruption:", updated["Disruption"])
+                print(
+                    f"Current/Updated Risk: {record['risk']}"
+                )
+
+                print(
+                    f"Disruption: {record['disruption']}"
+                )
+
+                print(
+                    f"Disruption Type: "
+                    f"{record['disruption_type']}"
+                )
 
             else:
 
-                print("Node not found:", node_id)
-
-                # --------------------------------------
-                # Show Available Node IDs
-                # --------------------------------------
-
-                check = session.run(
-                    """
-                    MATCH (n)
-                    RETURN n.id AS ID
-                    LIMIT 10
-                    """
+                print(
+                    f"Node not found: {node_id}"
                 )
-
-                print("\nAvailable Node IDs:")
-
-                for row in check:
-                    print(row["ID"])
 
     finally:
 
         driver.close()
 
 
-# --------------------------------------------------
-# Test
-# --------------------------------------------------
-
 if __name__ == "__main__":
 
-    node_id = "P001"
-    severity = "HIGH"
-
     update_node_risk(
-        node_id,
-        severity
+        "P001",
+        "HIGH",
+        "Port Closure"
     )

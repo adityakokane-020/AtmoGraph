@@ -1,16 +1,18 @@
 import pandas as pd
 from neo4j import GraphDatabase
 from pathlib import Path
+import os
 
 
 # --------------------------------------------------
 # Neo4j Configuration
 # --------------------------------------------------
 
-URI = "bolt://127.0.0.1:7687"
-USERNAME = "neo4j"
-PASSWORD = "12345678"
 
+URI = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7687")
+USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
+PASSWORD = os.getenv("NEO4J_PASSWORD")
+DATABASE = os.getenv("NEO4J_DATABASE", "atmograph")
 
 # --------------------------------------------------
 # Paths

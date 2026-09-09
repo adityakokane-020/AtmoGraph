@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -12,12 +13,12 @@ from torch_geometric.nn import GCNConv
 # Neo4j Configuration
 # --------------------------------------------------
 
-URI = "bolt://127.0.0.1:7687"
-USERNAME = "neo4j"
-PASSWORD = "12345678"
-DATABASE = "atmograph"
+import os
 
-
+URI = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7687")
+USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
+PASSWORD = os.getenv("NEO4J_PASSWORD")
+DATABASE = os.getenv("NEO4J_DATABASE", "atmograph")
 # --------------------------------------------------
 # Project Paths
 # --------------------------------------------------
@@ -29,7 +30,7 @@ MODEL_DIR = BASE_DIR / "models"
 
 nodes_file = DATA_DIR / "node_features.csv"
 edges_file = DATA_DIR / "edge_index.csv"
-model_path = MODEL_DIR / "ripple_gcn.pth"
+model_path = MODEL_DIR / "ripple_gcn_v2.pth"
 
 
 # --------------------------------------------------

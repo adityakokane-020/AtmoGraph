@@ -1,14 +1,15 @@
 from neo4j import GraphDatabase
+import os
 
 
 # ==================================================
 # Neo4j Configuration
 # ==================================================
 
-URI = "bolt://127.0.0.1:7687"
-USERNAME = "neo4j"
-PASSWORD = "12345678"
-DATABASE = "atmograph"
+URI = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7687")
+USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
+PASSWORD = os.getenv("NEO4J_PASSWORD")
+DATABASE = os.getenv("NEO4J_DATABASE", "atmograph")
 
 
 # ==================================================
