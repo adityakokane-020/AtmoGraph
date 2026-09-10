@@ -81,8 +81,9 @@ def run_complete_pipeline(news):
 if __name__ == "__main__":
 
     news = (
-        "Rotterdam Port has been closed due to a severe "
-        "operational disruption."
-    )
+    "Rotterdam Port is experiencing severe congestion "
+    "and container backlog."
+)
+    
 
     run_complete_pipeline(news)
