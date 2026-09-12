@@ -1,0 +1,7 @@
+pandas
+torch
+torch-geometric
+neo4j
+python-dotenv
+spacy
+scikit-learn
