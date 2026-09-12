@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Controls,
@@ -11,7 +11,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import "./App.css";
 
-
+const API_URL = "http://127.0.0.1:8000";
 // ========================================
 // INITIAL GRAPH DATA
 // ========================================
@@ -205,6 +205,8 @@ const initialEdges = [
 function App() {
   const [showGraph, setShowGraph] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [loadingGraph, setLoadingGraph] = useState(false);
+  const [graphError, setGraphError] = useState(null);
 
   const [nodes, setNodes, onNodesChange] =
     useNodesState(initialNodes);
@@ -212,6 +214,62 @@ function App() {
   const [edges, setEdges, onEdgesChange] =
     useEdgesState(initialEdges);
 
+  useEffect(() => {
+    const fetchGraph = async () => {
+      try {
+        setLoadingGraph(true);
+        setGraphError(null);
+
+        const response = await fetch(`${API_URL}/graph`);
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch graph from backend");
+        }
+
+        const data = await response.json();
+
+        const backendNodes = data.nodes.map((node, index) => ({
+          id: node.id,
+          position: {
+            x: (index % 4) * 270 + 80,
+            y: Math.floor(index / 4) * 160 + 100,
+          },
+          data: {
+            label: node.label || node.id,
+            type: node.type || "Unknown",
+            location: "Unknown",
+            status: "Normal",
+            risk: "Low",
+          },
+        }));
+
+        const backendEdges = data.relationships.map(
+          (relationship, index) => ({
+            id: `edge-${index}`,
+            source: relationship.source,
+            target: relationship.target,
+            type: "smoothstep",
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 18,
+              height: 18,
+            },
+          })
+        );
+
+        setNodes(backendNodes);
+        setEdges(backendEdges);
+
+      } catch (error) {
+        console.error("Graph API Error:", error);
+        setGraphError(error.message);
+      } finally {
+        setLoadingGraph(false);
+      }
+    };
+
+    fetchGraph();
+  }, [setNodes, setEdges]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [riskFilter, setRiskFilter] = useState("All");
