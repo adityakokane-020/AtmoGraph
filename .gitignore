@@ -1,8 +1,22 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
 venv/
 .venv/
+
+# Python tools
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+.pytest_cache/
 
 # Node / React
 node_modules/
@@ -11,7 +25,8 @@ dist/
 
 # Environment files
 .env
-.env.local
+.env.*
+!.env.example
 
 # IDE
 .vscode/
@@ -20,3 +35,14 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Temporary files
+tempCodeRunnerFile.py
+
+# Other Python tools
+.pypirc
+.abstra/
+.streamlit/secrets.toml
