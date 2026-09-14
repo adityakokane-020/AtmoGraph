@@ -1,0 +1,31 @@
+id,name,type,country,risk,capacity,delay,disruption
+S001,Alpha Components,Supplier,India,Low,80,0,None
+S002,Beta Materials,Supplier,China,Low,90,0,None
+S003,Gamma Parts,Supplier,Germany,Low,75,0,None
+S004,Delta Electronics,Supplier,Japan,Low,85,0,None
+S005,Omega Components,Supplier,USA,Low,70,0,None
+M001,TechManufacturing,Manufacturer,USA,Low,100,0,None
+M002,EuroTech,Manufacturer,Germany,Low,90,0,None
+M003,AsiaElectronics,Manufacturer,China,Low,95,0,None
+M004,GlobalDevices,Manufacturer,India,Low,85,0,None
+M005,NorthStar Electronics,Manufacturer,Canada,Low,80,0,None
+P001,Rotterdam Port,Port,Netherlands,Low,100,0,None
+P002,Hamburg Port,Port,Germany,Low,95,0,None
+P003,Singapore Port,Port,Singapore,Low,100,0,None
+P004,Mumbai Port,Port,India,Low,90,0,None
+P005,Los Angeles Port,Port,USA,Low,100,0,None
+W001,Amsterdam Warehouse,Warehouse,Netherlands,Low,80,0,None
+W002,Frankfurt Warehouse,Warehouse,Germany,Low,75,0,None
+W003,Singapore Warehouse,Warehouse,Singapore,Low,85,0,None
+W004,Mumbai Warehouse,Warehouse,India,Low,70,0,None
+W005,Chicago Warehouse,Warehouse,USA,Low,90,0,None
+D001,US Distributor,Distributor,USA,Low,80,0,None
+D002,EU Distributor,Distributor,Germany,Low,75,0,None
+D003,Asia Distributor,Distributor,Singapore,Low,85,0,None
+D004,India Distributor,Distributor,India,Low,70,0,None
+D005,Canada Distributor,Distributor,Canada,Low,75,0,None
+R001,US Electronics Retailer,Retailer,USA,Low,70,0,None
+R002,EU Electronics Retailer,Retailer,Germany,Low,65,0,None
+R003,Asia Electronics Retailer,Retailer,Singapore,Low,75,0,None
+R004,India Electronics Retailer,Retailer,India,Low,60,0,None
+R005,Canada Electronics Retailer,Retailer,Canada,Low,65,0,None

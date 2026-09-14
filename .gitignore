@@ -44,5 +44,12 @@ tempCodeRunnerFile.py
 
 # Other Python tools
 .pypirc
-.abstra/
+
+# Marimo
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+
+# Streamlit
 .streamlit/secrets.toml
+node_modules/
