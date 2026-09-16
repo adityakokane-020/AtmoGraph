@@ -6,6 +6,9 @@ import torch
 import torch.nn as nn
 from neo4j import GraphDatabase
 from torch_geometric.nn import GCNConv
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 # ============================================================
