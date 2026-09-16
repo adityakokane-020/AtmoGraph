@@ -3,7 +3,9 @@ from neo4j import GraphDatabase
 from pathlib import Path
 import os
 
+from dotenv import load_dotenv
 
+load_dotenv()
 # --------------------------------------------------
 # Neo4j Configuration
 # --------------------------------------------------

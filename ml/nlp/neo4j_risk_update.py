@@ -1,5 +1,8 @@
 import os
+from dotenv import load_dotenv
 from neo4j import GraphDatabase
+
+load_dotenv()
 
 
 URI = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7687")
