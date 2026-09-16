@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from .database import driver
+from .database import driver, NEO4J_DATABASE
 
 
 router = APIRouter()
@@ -27,7 +27,7 @@ def create_company(company: Company):
     RETURN c
     """
 
-    with driver.session() as session:
+    with driver.session(database=NEO4J_DATABASE) as session:
         result = session.run(
             query,
             name=company.name,
@@ -62,7 +62,7 @@ def create_supply_relationship(data: SupplyRelationship):
     RETURN s, r, c
     """
 
-    with driver.session() as session:
+    with driver.session(database=NEO4J_DATABASE) as session:
         result = session.run(
             query,
             supplier=data.supplier,
@@ -101,7 +101,7 @@ def create_port(port: Port):
     RETURN p
     """
 
-    with driver.session() as session:
+    with driver.session(database=NEO4J_DATABASE) as session:
         result = session.run(
             query,
             name=port.name,
@@ -135,7 +135,7 @@ def create_port_relationship(data: PortRelationship):
     RETURN c, r, p
     """
 
-    with driver.session() as session:
+    with driver.session(database=NEO4J_DATABASE) as session:
         result = session.run(
             query,
             company=data.company,
@@ -178,7 +178,7 @@ def create_disruption(disruption: Disruption):
     RETURN d
     """
 
-    with driver.session() as session:
+    with driver.session(database=NEO4J_DATABASE) as session:
         result = session.run(
             query,
             type=disruption.type,
@@ -215,7 +215,7 @@ def create_disruption_relationship(
     RETURN p, r, d
     """
 
-    with driver.session() as session:
+    with driver.session(database=NEO4J_DATABASE) as session:
         result = session.run(
             query,
             port=data.port,
@@ -242,21 +242,19 @@ def create_disruption_relationship(
 
 @router.get("/graph")
 def get_graph():
-
     query = """
     MATCH (n)
     OPTIONAL MATCH (n)-[r]->(m)
     RETURN n, r, m
     """
 
-    with driver.session() as session:
+    with driver.session(database=NEO4J_DATABASE) as session:
         result = session.run(query)
 
         nodes = {}
         relationships = []
 
         for record in result:
-
             source = record["n"]
             relationship = record["r"]
             target = record["m"]
@@ -265,21 +263,34 @@ def get_graph():
                 node_id = source.element_id
 
                 nodes[node_id] = {
-                    "id": node_id,
-                    "label": source.get("name")
-                    or source.get("type"),
-                    "type": list(source.labels)[0]
-                }
-
+                        "id": node_id,
+                        "label": source.get("name") or source.get("type"),
+                        "type": list(source.labels)[0],
+                        "country": source.get("country"),
+                        "risk": source.get("risk"),
+                        "capacity": source.get("capacity"),
+                        "delay": source.get("delay"),
+                        "disruption": source.get("disruption"),
+                        "disruption_type": source.get("disruption_type"),
+                        "predicted_risk": source.get("predicted_risk"),
+                        "predicted_delay": source.get("predicted_delay")
+                    }
             if target:
                 node_id = target.element_id
 
                 nodes[node_id] = {
-                    "id": node_id,
-                    "label": target.get("name")
-                    or target.get("type"),
-                    "type": list(target.labels)[0]
-                }
+                        "id": node_id,
+                        "label": target.get("name") or target.get("type"),
+                        "type": list(target.labels)[0],
+                        "country": target.get("country"),
+                        "risk": target.get("risk"),
+                        "capacity": target.get("capacity"),
+                        "delay": target.get("delay"),
+                        "disruption": target.get("disruption"),
+                        "disruption_type": target.get("disruption_type"),
+                        "predicted_risk": target.get("predicted_risk"),
+                        "predicted_delay": target.get("predicted_delay")
+                        }
 
             if relationship is not None:
                 relationships.append({
@@ -292,8 +303,6 @@ def get_graph():
         "nodes": list(nodes.values()),
         "relationships": relationships
     }
-
-
 # -----------------------------
 # Risk Calculation
 # -----------------------------
@@ -339,23 +348,31 @@ def calculate_risk(severity, impact_level):
 def get_ripple_effect(disruption_type: str):
 
     query = """
-    MATCH (d:Disruption {type: $disruption_type})
-    MATCH (p:Port)-[:AFFECTED_BY]->(d)
-    MATCH (c:Company)-[:USES_PORT]->(p)
+MATCH (start:SupplyChainNode)
+WHERE start.disruption = 1
+  AND start.disruption_type = $disruption_type
 
-    OPTIONAL MATCH path =
-        (s:Company)-[:SUPPLIES*1..5]->(c)
+MATCH path =
+    (start)-[*0..5]->(target:SupplyChainNode)
 
-    RETURN d,
-           p.name AS port,
-           c.name AS affected_company,
-           collect(DISTINCT {
-               supplier: s.name,
-               supplier_level: length(path) + 1
-           }) AS suppliers
-    """
+WITH start, path, target
+WHERE target <> start
 
-    with driver.session() as session:
+RETURN
+    start.name AS disruption_node,
+    start.risk AS disruption_risk,
+    start.disruption_type AS disruption_type,
+    collect(DISTINCT {
+        node_id: target.id,
+        node_name: target.name,
+        node_type: target.type,
+        risk: target.predicted_risk,
+        predicted_delay: target.predicted_delay,
+        path_length: length(path)
+    }) AS affected_nodes
+"""
+
+    with driver.session(database=NEO4J_DATABASE) as session:
         result = session.run(
             query,
             disruption_type=disruption_type
@@ -369,60 +386,133 @@ def get_ripple_effect(disruption_type: str):
             detail="Disruption not found"
         )
 
-    disruption = dict(record["d"])
+    disruption = {
+        "node": record["disruption_node"],
+        "risk": record["disruption_risk"],
+        "type": record["disruption_type"]
+    }
 
     ripple_effect = []
 
-    # -----------------------------
-    # Directly affected company
-    # -----------------------------
-
-    direct_risk = calculate_risk(
-        disruption.get("severity", "Low"),
-        1
-    )
-
-    ripple_effect.append({
-        "company": record["affected_company"],
-        "port": record["port"],
-        "impact_level": 1,
-        "risk": direct_risk["risk"],
-        "risk_score": direct_risk["risk_score"]
-    })
-
-    # -----------------------------
-    # Supplier ripple effects
-    # -----------------------------
-
-    for supplier in record["suppliers"]:
-
-        supplier_name = supplier.get("supplier")
-        supplier_level = supplier.get(
-            "supplier_level"
-        )
-
-        if (
-            supplier_name is None
-            or supplier_level is None
-        ):
-            continue
-
-        impact_level = int(supplier_level)
-
-        supplier_risk = calculate_risk(
-            disruption.get("severity", "Low"),
-            impact_level
-        )
-
+    for node in record["affected_nodes"]:
         ripple_effect.append({
-            "company": supplier_name,
-            "port": record["port"],
-            "impact_level": impact_level,
-            "risk": supplier_risk["risk"],
-            "risk_score": supplier_risk["risk_score"]
+            "node_id": node["node_id"],
+            "node_name": node["node_name"],
+            "node_type": node["node_type"],
+            "risk": node["risk"] or "Low",
+            "predicted_delay": node["predicted_delay"] or 0,
+            "impact_level": node["path_length"]
         })
 
     return {
         "disruption": disruption,
         "ripple_effect": ripple_effect
+    }
+# -----------------------------
+# Ripple Effect by Any Node
+# -----------------------------
+
+@router.get("/ripple-effect/node/{node_id}")
+def get_ripple_effect_by_node(node_id: str):
+
+    query = """
+    MATCH (start:SupplyChainNode)
+WHERE elementId(start) = $node_id
+
+    MATCH path =
+        (start)-[*0..5]->(target:SupplyChainNode)
+
+    WITH start, path, target
+    WHERE target <> start
+
+    RETURN
+        start.name AS disruption_node,
+        start.risk AS disruption_risk,
+        collect(DISTINCT {
+            node_id: target.id,
+            node_name: target.name,
+            node_type: target.type,
+            risk: target.predicted_risk,
+            predicted_delay: target.predicted_delay,
+            path_length: length(path)
+        }) AS affected_nodes
+    """
+
+    with driver.session(database=NEO4J_DATABASE) as session:
+        result = session.run(
+            query,
+            node_id=node_id
+        )
+
+        record = result.single()
+
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail="Node not found"
+        )
+
+    ripple_effect = []
+
+    for node in record["affected_nodes"]:
+        ripple_effect.append({
+            "node_id": node["node_id"],
+            "node_name": node["node_name"],
+            "node_type": node["node_type"],
+            "risk": node["risk"] or "Low",
+            "predicted_delay": node["predicted_delay"] or 0,
+            "impact_level": node["path_length"]
+        })
+
+    return {
+        "disruption": {
+            "node": record["disruption_node"],
+            "risk": record["disruption_risk"] or "Low",
+            "type": "Simulated Disruption"
+        },
+        "ripple_effect": ripple_effect
+    }
+
+# ==========================================
+# GNN MODEL METRICS
+# ==========================================
+
+@router.get("/model-metrics")
+def get_model_metrics():
+
+    import pandas as pd
+    from pathlib import Path
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+    import math
+
+    BASE_DIR = Path(__file__).resolve().parents[2]
+
+    prediction_file = (
+        BASE_DIR
+        / "ml"
+        / "data"
+        / "gcn_v2_test_predictions.csv"
+    )
+
+    if not prediction_file.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="GNN prediction file not found."
+        )
+
+    df = pd.read_csv(prediction_file)
+
+    actual = df["actual_delay"]
+    predicted = df["predicted_delay"]
+
+    mae = mean_absolute_error(actual, predicted)
+    rmse = math.sqrt(mean_squared_error(actual, predicted))
+    r2 = r2_score(actual, predicted)
+
+    return {
+        "model": "Ripple GCN V2",
+        "test_predictions": len(df),
+        "mae": round(float(mae), 3),
+        "rmse": round(float(rmse), 3),
+        "r2": round(float(r2), 3)
     }
