@@ -1,5 +1,8 @@
 from neo4j import GraphDatabase
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 # ==================================================
