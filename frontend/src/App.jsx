@@ -213,7 +213,9 @@ function App() {
 
   const [edges, setEdges, onEdgesChange] =
     useEdgesState(initialEdges);
-
+// ========================================
+// GNN MODEL METRICS
+// ========================================
   useEffect(() => {
     const fetchGraph = async () => {
       try {
@@ -235,46 +237,83 @@ function App() {
             y: Math.floor(index / 4) * 160 + 100,
           },
           data: {
+            nodeId: node.id,
             label: node.label || node.id,
             type: node.type || "Unknown",
-            location: "Unknown",
-            status: "Normal",
-            risk: "Low",
+            location: node.country || "Unknown",
+            status: node.disruption ? "Disrupted" : "Normal",
+            risk: node.predicted_risk || node.risk || "Low",
+            riskScore: node.predicted_delay || 0,
+            predictedRisk: node.predicted_risk || node.risk || "Low",
+            predictedDelay: node.predicted_delay || 0,
+
+            disruption: node.disruption || null,
+            disruptionType: node.disruption_type || null,
+            capacity: node.capacity || 0,
           },
         }));
 
-        const backendEdges = data.relationships.map(
-          (relationship, index) => ({
-            id: `edge-${index}`,
-            source: relationship.source,
-            target: relationship.target,
-            type: "smoothstep",
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              width: 18,
-              height: 18,
-            },
-          })
-        );
+const backendEdges = data.relationships.map((edge) => ({
+  id: `${edge.source}-${edge.target}`,
+  source: edge.source,
+  target: edge.target,
+  type: "smoothstep",
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    width: 18,
+    height: 18,
+  },
+}));
 
-        setNodes(backendNodes);
-        setEdges(backendEdges);
+setNodes(backendNodes);
+setEdges(backendEdges);
 
-      } catch (error) {
-        console.error("Graph API Error:", error);
-        setGraphError(error.message);
-      } finally {
-        setLoadingGraph(false);
-      }
-    };
+} catch (error) {
+  console.error("Graph API Error:", error);
+  setGraphError(error.message);
+} finally {
+  setLoadingGraph(false);
+}
+};
 
-    fetchGraph();
-  }, [setNodes, setEdges]);
+fetchGraph();
+
+}, [setNodes, setEdges]);
+
   const [selectedNode, setSelectedNode] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [riskFilter, setRiskFilter] = useState("All");
   const [rippleNodes, setRippleNodes] = useState([]);
 
+  const [modelMetrics, setModelMetrics] = useState(null);
+  const [rippleResults, setRippleResults] = useState([]);
+
+// ========================================
+// GNN MODEL METRICS
+// ========================================
+
+useEffect(() => {
+  const fetchModelMetrics = async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/model-metrics`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch model metrics");
+      }
+
+      const data = await response.json();
+
+      setModelMetrics(data);
+
+    } catch (error) {
+      console.error("Model Metrics Error:", error);
+    }
+  };
+
+  fetchModelMetrics();
+}, []);
   // ========================================
   // RISK COUNTS
   // ========================================
@@ -291,6 +330,10 @@ function App() {
 
       high: nodes.filter(
         (node) => node.data.risk === "High"
+      ).length,
+
+      critical: nodes.filter(
+        (node) => node.data.risk === "Critical"
       ).length,
     };
   }, [nodes]);
@@ -395,28 +438,57 @@ function App() {
   };
 
 
-  const simulateRipple = () => {
+  const simulateRipple = async () => {
     if (!selectedNode) {
-      const factoryB = nodes.find(
-        (node) => node.id === "factory-b"
-      );
-
-      if (factoryB) {
-        setSelectedNode(factoryB);
-        setRippleNodes(calculateRipple(factoryB.id));
-      }
-
+      alert("Please select a disrupted node first.");
       return;
     }
 
-    setRippleNodes(
-      calculateRipple(selectedNode.id)
-    );
+    const nodeId = selectedNode.data.nodeId;
+
+    if (!nodeId) {
+      alert("Node ID not found.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/ripple-effect/node/${encodeURIComponent(nodeId)}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch ripple effect from backend.");
+      }
+
+      const data = await response.json();
+
+      setRippleResults(data.ripple_effect || []);
+
+      const affectedNodeIds = data.ripple_effect.map(
+        (item) => {
+          const node = nodes.find(
+            (n) => n.data.label === item.node_name
+          );
+
+          return node ? node.id : null;
+        }
+      ).filter(Boolean);
+
+      setRippleNodes([
+        selectedNode.id,
+        ...affectedNodeIds,
+      ]);
+
+    } catch (error) {
+      console.error("Ripple Effect API Error:", error);
+      alert("Failed to calculate ripple effect.");
+    }
   };
 
 
   const clearRipple = () => {
     setRippleNodes([]);
+    setRippleResults([]);
   };
 
 
@@ -443,6 +515,31 @@ function App() {
       };
     }
 
+    // ========================================
+    // ACTIVE RIPPLE SIMULATION
+    // ========================================
+
+    if (rippleNodes.length > 0) {
+      const downstreamCount = rippleNodes.filter(
+        (id) => id !== selectedNode.id
+      ).length;
+
+      return {
+        title: "Ripple Simulation",
+        message:
+          `${selectedNode.data.label} was selected as the disruption source. ` +
+          `The simulated disruption propagates through the connected downstream network.`,
+        impact:
+          `${downstreamCount} downstream node${downstreamCount !== 1 ? "s" : ""}`,
+        recommendation:
+          "Review the affected downstream nodes and evaluate alternative routes, suppliers, or inventory buffers.",
+      };
+    }
+
+    // ========================================
+    // NORMAL NODE RISK INSIGHT
+    // ========================================
+
     const downstreamNodes = calculateRipple(selectedNode.id)
       .filter((id) => id !== selectedNode.id)
       .map((id) =>
@@ -453,39 +550,56 @@ function App() {
     const risk = selectedNode.data.risk;
 
     let title = "Low Risk";
+
     let message =
       `${selectedNode.data.label} currently shows low supply chain risk. ` +
       `The connected network appears relatively stable.`;
+
     let recommendation =
       "Continue regular monitoring of this node.";
 
     if (risk === "Medium") {
       title = "Potential Disruption";
+
       message =
         `${selectedNode.data.label} has a medium risk level. ` +
         `A disruption at this node could affect downstream supply chain operations.`;
+
       recommendation =
         "Monitor connected downstream nodes and prepare alternative routes.";
     }
 
     if (risk === "High") {
       title = "High Risk Detected";
+
       message =
         `${selectedNode.data.label} is currently classified as high risk. ` +
         `A disruption could significantly propagate through the supply chain.`;
+
       recommendation =
         "Take immediate preventive action and evaluate alternative suppliers or routes.";
+    }
+
+    if (risk === "Critical") {
+      title = "Critical Risk Detected";
+
+      message =
+        `${selectedNode.data.label} is currently classified as critical risk. ` +
+        `The disruption may cause severe downstream impact across the supply chain.`;
+
+      recommendation =
+        "Take immediate mitigation action and evaluate alternative routes, suppliers, or inventory buffers.";
     }
 
     return {
       title,
       message,
-      impact: `${downstreamNodes.length} downstream node${downstreamNodes.length !== 1 ? "s" : ""
-        }`,
+      impact:
+        `${downstreamNodes.length} downstream node${downstreamNodes.length !== 1 ? "s" : ""}`,
       recommendation,
     };
-  }, [selectedNode, nodes, edges]);
 
+  }, [selectedNode, nodes, edges, rippleNodes]);
   // ========================================
   // EXPORT REPORT
   // ========================================
@@ -500,6 +614,7 @@ Total Nodes: ${nodes.length}
 Low Risk: ${riskCounts.low}
 Medium Risk: ${riskCounts.medium}
 High Risk: ${riskCounts.high}
+Critical Risk: ${riskCounts.critical}
 
 Selected Node:
 ${selectedNode ? selectedNode.data.label : "None"}
@@ -774,6 +889,16 @@ Generated by AtmoGraph
                 {riskCounts.high}
               </strong>
             </div>
+            <div className="risk-row">
+              <span>
+                <i className="dot critical"></i>
+                Critical Risk
+              </span>
+
+              <strong className="red">
+                {riskCounts.critical}
+              </strong>
+            </div>
 
             <div className="total-row">
               Total Nodes
@@ -838,6 +963,7 @@ Generated by AtmoGraph
               <option value="Low">Low Risk</option>
               <option value="Medium">Medium Risk</option>
               <option value="High">High Risk</option>
+              <option value="Critical">Critical Risk</option>
             </select>
 
           </div>
@@ -1107,8 +1233,234 @@ Generated by AtmoGraph
           </div>
 
         </section>
+        {/* ================================== */}
+        {/* GNN RESULTS */}
+        {/* ================================== */}
+
+        <section className="results-grid">
+
+          {/* MODEL PERFORMANCE */}
+
+          <div className="analytics-card model-performance">
+
+            <h3>GNN Model Performance</h3>
+
+            <p className="results-subtitle">
+              Ripple GCN V2 · Held-out test scenarios
+            </p>
+
+            {modelMetrics ? (
+
+              <div className="metrics-grid">
+
+                <div className="metric-box">
+                  <span>MAE</span>
+                  <strong>
+                    {modelMetrics.mae}
+                  </strong>
+                  <small>days</small>
+                </div>
+
+                <div className="metric-box">
+                  <span>RMSE</span>
+                  <strong>
+                    {modelMetrics.rmse}
+                  </strong>
+                  <small>days</small>
+                </div>
+
+                <div className="metric-box">
+                  <span>R²</span>
+                  <strong>
+                    {modelMetrics.r2}
+                  </strong>
+                  <small>score</small>
+                </div>
+
+                <div className="metric-box">
+                  <span>Predictions</span>
+                  <strong>
+                    {modelMetrics.test_predictions}
+                  </strong>
+                  <small>test samples</small>
+                </div>
+
+              </div>
+
+            ) : (
+
+              <p className="results-loading">
+                Loading model performance...
+              </p>
+
+            )}
+
+          </div>
 
 
+          {/* RIPPLE PREDICTION */}
+
+          <div className="analytics-card ripple-results-card">
+
+            <h3>Ripple Prediction</h3>
+
+            <p className="results-subtitle">
+              Predicted downstream impact
+            </p>
+
+            {rippleResults.length > 0 ? (
+
+              <div className="ripple-results-list">
+
+                {rippleResults.map((item) => (
+
+                  <div
+                    className="ripple-result-row"
+                    key={item.node_id}
+                  >
+
+                    <div className="ripple-node-info">
+
+                      <strong>
+                        {item.node_name}
+                      </strong>
+
+                      <span>
+                        {item.node_type}
+                      </span>
+
+                    </div>
+
+                    <div className="ripple-delay">
+
+                      <strong>
+                        {Number(item.predicted_delay).toFixed(2)}
+                      </strong>
+
+                      <span>
+                        days
+                      </span>
+
+                    </div>
+
+                    <div
+                      className={
+                        `ripple-risk ${item.risk.toLowerCase()}`
+                      }
+                    >
+                      {item.risk}
+                    </div>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            ) : (
+
+              <div className="empty-results">
+
+                <span>〽</span>
+
+                <p>
+                  Run a ripple simulation to view
+                  predicted downstream delays.
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+
+          {/* RIPPLE GRAPH */}
+
+          <div className="analytics-card ripple-chart-card">
+
+            <h3>Ripple Impact Graph</h3>
+
+            <p className="results-subtitle">
+              Predicted delay across affected nodes
+            </p>
+
+            {rippleResults.length > 0 ? (
+
+              <div className="ripple-chart">
+
+                {rippleResults.map((item) => {
+
+                  const delay =
+                    Number(item.predicted_delay) || 0;
+
+                  const maxDelay =
+                    Math.max(
+                      ...rippleResults.map(
+                        (node) =>
+                          Number(node.predicted_delay) || 0
+                      ),
+                      1
+                    );
+
+                  const width =
+                    Math.max(
+                      (delay / maxDelay) * 100,
+                      3
+                    );
+
+                  return (
+
+                    <div
+                      className="chart-row"
+                      key={item.node_id}
+                    >
+
+                      <div className="chart-label">
+                        {item.node_name}
+                      </div>
+
+                      <div className="chart-track">
+
+                        <div
+                          className="chart-bar"
+                          style={{
+                            width: `${width}%`
+                          }}
+                        />
+
+                      </div>
+
+                      <div className="chart-value">
+                        {delay.toFixed(2)}d
+                      </div>
+
+                    </div>
+
+                  );
+
+                })}
+
+              </div>
+
+            ) : (
+
+              <div className="empty-results">
+
+                <span>📊</span>
+
+                <p>
+                  The ripple graph will appear after
+                  simulation.
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+        </section>
         {/* ================================== */}
         {/* BOTTOM ANALYTICS */}
         {/* ================================== */}
@@ -1174,6 +1526,20 @@ Generated by AtmoGraph
                   <strong>
                     {Math.round(
                       (riskCounts.high /
+                        nodes.length) *
+                      100
+                    )}%
+                  </strong>
+                </div>
+                <div>
+                  <span>
+                    <i className="dot critical"></i>
+                    Critical Risk
+                  </span>
+
+                  <strong>
+                    {Math.round(
+                      (riskCounts.critical /
                         nodes.length) *
                       100
                     )}%
