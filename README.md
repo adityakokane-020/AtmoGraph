@@ -8,11 +8,11 @@
 
 ## Problem Statement
 
-Traditional supply chain prediction systems often rely on linear and isolated data, making it difficult to understand the complex relationships between suppliers, factories, ports, warehouses, and markets.
+The basic idea behind AtmoGraph is to understand how a disruption in one part of a supply chain can affect other connected parts of the network.
 
-As a result, these systems may struggle to predict how a disruption in one part of the supply chain can affect connected entities across different regions and industries.
+In a real supply chain, suppliers, factories, ports, warehouses, distributors and retailers are all interconnected. So, if one important node experiences a disruption, the impact can propagate to downstream nodes and create delays.
 
-AtmoGraph aims to address this problem by representing the supply chain as an interconnected graph and predicting how disruptions can propagate through the network.
+To solve this problem, we represent the supply chain as a graph. The different supply-chain entities are represented as nodes, and their connections are represented as relationships.
 
 ---
 
