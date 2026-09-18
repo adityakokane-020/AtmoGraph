@@ -477,7 +477,6 @@ P001
 ```text
 AtmoGraph/
 │
-<<<<<<< HEAD
 ├── frontend/
 ├── backend/
 ├── ml/
@@ -552,7 +551,6 @@ The planned AtmoGraph architecture is:
                               │
                               ▼
                      React Dashboard
-=======
 ├── ml/
 │   ├── data/
 │   │   ├── node_features.csv
@@ -711,7 +709,6 @@ Neo4j
 ```
 
 The core **ML + Neo4j intelligence pipeline is now operational**, with the remaining work focused primarily on broader testing, full team integration, dashboard validation, documentation and final project preparation.
->>>>>>> ml
 
 ## Current Integration Status
 
